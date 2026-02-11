@@ -1,0 +1,13 @@
+{
+  "name": "bitchless-files",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Bitchless Files (Pages + KV backend)",
+  "scripts": {
+    "dev": "wrangler pages dev .",
+    "deploy": "wrangler pages deploy ."
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

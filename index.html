@@ -1,2201 +1,2310 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Bitchless Files</title>
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+  <meta charset="UTF-8" />  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>  
+  <title>Bitchless Files</title>  
+  
+  <script src="https://cdn.tailwindcss.com"></script>  
+  <script src="https://unpkg.com/lucide@latest"></script>  
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">  
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">  
+  
+  <!-- ✅ Firebase (CDN, COMPAT so we can keep your existing <script> exactly as normal JS) -->
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.9.0/firebase-storage-compat.js"></script>
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>  
+    :root { color-scheme: dark; }  
+    body {  
+      font-family: 'Inter', sans-serif;  
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(16,185,129,0.15), transparent 55%),  
+                  radial-gradient(900px 500px at 80% 20%, rgba(99,102,241,0.12), transparent 55%),  
+                  #07070a;  
+      color: #e4e4e7;  
+      overflow-x: hidden;  
+    }  
+    .glass {  
+      background: rgba(10, 10, 14, 0.65);  
+      backdrop-filter: blur(14px);  
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);  
+    }  
+    .panel {  
+      background: rgba(10, 10, 14, 0.72);  
+      backdrop-filter: blur(14px);  
+      border: 1px solid rgba(255,255,255,0.08);  
+    }  
+    .modal-bg {  
+      background: rgba(0, 0, 0, 0.78);  
+      backdrop-filter: blur(6px);  
+    }  
+    .drawer { transform: translateX(100%); transition: transform 0.28s ease; }  
+    .drawer.open { transform: translateX(0); }  
+    .fade-up { animation: fadeUp .18s ease-out; }  
+    @keyframes fadeUp {  
+      from { opacity: 0; transform: translateY(10px); }  
+      to { opacity: 1; transform: translateY(0); }  
+    }  
+    .ring-soft { box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset; }  
+    .btn {  
+      display:inline-flex; align-items:center; justify-content:center; gap:.5rem;  
+      border-radius: 9999px;  
+      padding: .65rem 1rem;  
+      font-weight: 700;  
+      transition: transform .08s ease, background .2s ease, box-shadow .2s ease;  
+      white-space: nowrap;  
+      max-width: 100%;  
+    }  
+    .btn:active { transform: translateY(1px); }  
+    .toast { animation: toastIn .2s ease-out; }  
+    @keyframes toastIn {  
+      from { opacity: 0; transform: translateY(8px); }  
+      to { opacity: 1; transform: translateY(0); }  
+    }  
+    /* Better mobile: prevent buttons from pushing layout */  
+    .action-row { display:flex; flex-wrap:wrap; gap:.5rem; }  
+    .action-row .btn { padding:.55rem .9rem; }  
+    .media-grid { display:grid; gap:.5rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }  
+    @media (min-width: 640px) { .media-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }  
+    .media-card { border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.25); border-radius: 16px; overflow:hidden; }  
+    .file-pill { border: 1px solid rgba(255,255,255,0.10); border-radius: 9999px; padding: .4rem .7rem; display:flex; gap:.4rem; align-items:center; }  
+  
+    /* Better mobile: keep modal within viewport and allow internal scroll */  
+    .modal-panel-scroll {  
+      max-height: calc(100vh - 2rem);  
+      overflow-y: auto;  
+      -webkit-overflow-scrolling: touch;  
+      overflow-x: hidden;  
+    }  
+    .preview-scroll {  
+      max-height: 40vh;  
+      overflow-y: auto;  
+      -webkit-overflow-scrolling: touch;  
+      padding-right: .25rem;  
+    }  
+    @media (min-width: 640px) {  
+      .preview-scroll { max-height: 45vh; }  
+    }  
+  
+    /* ✅ Sticky footer row inside scrollable modal (Post button always visible) */  
+    .sticky-footer {  
+      position: sticky;  
+      bottom: 0;  
+      background: rgba(10, 10, 14, 0.92);  
+      backdrop-filter: blur(14px);  
+      border-top: 1px solid rgba(255,255,255,0.08);  
+      padding-top: .6rem;  
+      padding-bottom: .6rem;  
+      margin-bottom: -0.25rem;  
+    }  
+  
+    /* ✅ WhatsApp-style compact selected-media preview */  
+    .preview-row {  
+      display: flex;  
+      gap: .55rem;  
+      flex-wrap: wrap;  
+      align-items: center;  
+      overflow: hidden;  
+    }  
+    .thumb {  
+      width: 64px;  
+      height: 64px;  
+      border-radius: 16px;  
+      border: 1px solid rgba(255,255,255,0.10);  
+      background: rgba(0,0,0,0.25);  
+      position: relative;  
+      overflow: hidden;  
+      flex: 0 0 auto;  
+    }  
+    .thumb img, .thumb video {  
+      width: 100%;  
+      height: 100%;  
+      object-fit: cover;  
+      display: block;  
+    }  
+    .thumb .thumb-icon {  
+      width: 100%;  
+      height: 100%;  
+      display: grid;  
+      place-items: center;  
+      background: rgba(255,255,255,0.04);  
+    }  
+    .thumb .remove-x {  
+      position: absolute;  
+      top: 6px;  
+      right: 6px;  
+      width: 26px;  
+      height: 26px;  
+      border-radius: 9999px;  
+      display: grid;  
+      place-items: center;  
+      background: rgba(0,0,0,0.55);  
+      border: 1px solid rgba(255,255,255,0.12);  
+      cursor: pointer;  
+    }  
+    .more-pill {  
+      height: 64px;  
+      padding: 0 .85rem;  
+      border-radius: 18px;  
+      border: 1px solid rgba(255,255,255,0.10);  
+      background: rgba(255,255,255,0.05);  
+      display: inline-flex;  
+      align-items: center;  
+      gap: .45rem;  
+      font-weight: 800;  
+      cursor: pointer;  
+      user-select: none;  
+    }  
+  
+    /* Lightbox (media viewer) */  
+    .viewer-toolbar {  
+      background: rgba(10, 10, 14, 0.55);  
+      backdrop-filter: blur(14px);  
+      border: 1px solid rgba(255,255,255,0.08);  
+    }  
+    .viewer-stage {  
+      position: relative;  
+      width: 100%;  
+      height: 100%;  
+      overflow: hidden;  
+      touch-action: pan-y; /* allow vertical scroll if needed on page, but we handle horizontal swipe */  
+    }  
+    .viewer-media-wrap {  
+      position: absolute;  
+      inset: 0;  
+      display: grid;  
+      place-items: center;  
+    }  
+    .viewer-img {  
+      max-width: 100%;  
+      max-height: 82vh;  
+      user-select: none;  
+      -webkit-user-drag: none;  
+      touch-action: none; /* we handle pinch/pan */  
+      transform-origin: center center;  
+      will-change: transform;  
+      border-radius: 18px;  
+      border: 1px solid rgba(255,255,255,0.10);  
+      background: rgba(0,0,0,0.25);  
+    }  
+    .viewer-video {  
+      width: 100%;  
+      max-width: 980px;  
+      max-height: 82vh;  
+      border-radius: 18px;  
+      border: 1px solid rgba(255,255,255,0.10);  
+      background: rgba(0,0,0,0.35);  
+      overflow: hidden;  
+    }  
+    .viewer-counter {  
+      font-variant-numeric: tabular-nums;  
+    }  
+  </style>  
+</head>  
+  
+<body class="min-h-screen flex flex-col">  
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <style>
-    :root { color-scheme: dark; }
-    body {
-      font-family: 'Inter', sans-serif;
-      background: radial-gradient(1200px 600px at 20% 0%, rgba(16,185,129,0.15), transparent 55%),
-                  radial-gradient(900px 500px at 80% 20%, rgba(99,102,241,0.12), transparent 55%),
-                  #07070a;
-      color: #e4e4e7;
-      overflow-x: hidden;
-    }
-    .glass {
-      background: rgba(10, 10, 14, 0.65);
-      backdrop-filter: blur(14px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    }
-    .panel {
-      background: rgba(10, 10, 14, 0.72);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-    .modal-bg {
-      background: rgba(0, 0, 0, 0.78);
-      backdrop-filter: blur(6px);
-    }
-    .drawer { transform: translateX(100%); transition: transform 0.28s ease; }
-    .drawer.open { transform: translateX(0); }
-    .fade-up { animation: fadeUp .18s ease-out; }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .ring-soft { box-shadow: 0 0 0 1px rgba(255,255,255,0.08) inset; }
-    .btn {
-      display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
-      border-radius: 9999px;
-      padding: .65rem 1rem;
-      font-weight: 700;
-      transition: transform .08s ease, background .2s ease, box-shadow .2s ease;
-      white-space: nowrap;
-      max-width: 100%;
-    }
-    .btn:active { transform: translateY(1px); }
-    .toast { animation: toastIn .2s ease-out; }
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    /* Better mobile: prevent buttons from pushing layout */
-    .action-row { display:flex; flex-wrap:wrap; gap:.5rem; }
-    .action-row .btn { padding:.55rem .9rem; }
-    .media-grid { display:grid; gap:.5rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    @media (min-width: 640px) { .media-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    .media-card { border: 1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.25); border-radius: 16px; overflow:hidden; }
-    .file-pill { border: 1px solid rgba(255,255,255,0.10); border-radius: 9999px; padding: .4rem .7rem; display:flex; gap:.4rem; align-items:center; }
-
-    /* Better mobile: keep modal within viewport and allow internal scroll */
-    .modal-panel-scroll {
-      max-height: calc(100vh - 2rem);
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      overflow-x: hidden;
-    }
-    .preview-scroll {
-      max-height: 40vh;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
-      padding-right: .25rem;
-    }
-    @media (min-width: 640px) {
-      .preview-scroll { max-height: 45vh; }
-    }
-
-    /* ✅ Sticky footer row inside scrollable modal (Post button always visible) */
-    .sticky-footer {
-      position: sticky;
-      bottom: 0;
-      background: rgba(10, 10, 14, 0.92);
-      backdrop-filter: blur(14px);
-      border-top: 1px solid rgba(255,255,255,0.08);
-      padding-top: .6rem;
-      padding-bottom: .6rem;
-      margin-bottom: -0.25rem;
-    }
-
-    /* ✅ WhatsApp-style compact selected-media preview */
-    .preview-row {
-      display: flex;
-      gap: .55rem;
-      flex-wrap: wrap;
-      align-items: center;
-      overflow: hidden;
-    }
-    .thumb {
-      width: 64px;
-      height: 64px;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(0,0,0,0.25);
-      position: relative;
-      overflow: hidden;
-      flex: 0 0 auto;
-    }
-    .thumb img, .thumb video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .thumb .thumb-icon {
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
-      background: rgba(255,255,255,0.04);
-    }
-    .thumb .remove-x {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 26px;
-      height: 26px;
-      border-radius: 9999px;
-      display: grid;
-      place-items: center;
-      background: rgba(0,0,0,0.55);
-      border: 1px solid rgba(255,255,255,0.12);
-      cursor: pointer;
-    }
-    .more-pill {
-      height: 64px;
-      padding: 0 .85rem;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(255,255,255,0.05);
-      display: inline-flex;
-      align-items: center;
-      gap: .45rem;
-      font-weight: 800;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    /* Lightbox (media viewer) */
-    .viewer-toolbar {
-      background: rgba(10, 10, 14, 0.55);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-    .viewer-stage {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      touch-action: pan-y; /* allow vertical scroll if needed on page, but we handle horizontal swipe */
-    }
-    .viewer-media-wrap {
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-    }
-    .viewer-img {
-      max-width: 100%;
-      max-height: 82vh;
-      user-select: none;
-      -webkit-user-drag: none;
-      touch-action: none; /* we handle pinch/pan */
-      transform-origin: center center;
-      will-change: transform;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(0,0,0,0.25);
-    }
-    .viewer-video {
-      width: 100%;
-      max-width: 980px;
-      max-height: 82vh;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: rgba(0,0,0,0.35);
-      overflow: hidden;
-    }
-    .viewer-counter {
-      font-variant-numeric: tabular-nums;
-    }
-  </style>
-</head>
-
-<body class="min-h-screen flex flex-col">
-
-  <!-- Maintenance Screen -->
-  <div id="maintenanceScreen" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4">
-    <div class="absolute inset-0 bg-black/80"></div>
-    <div class="relative panel rounded-[28px] max-w-xl w-full p-7 text-center fade-up">
-      <div class="w-14 h-14 mx-auto rounded-3xl bg-white/5 ring-soft flex items-center justify-center">
-        <i data-lucide="wrench" class="w-7 h-7 text-amber-300"></i>
-      </div>
-      <h2 class="mt-4 text-2xl font-extrabold">Site under maintenance</h2>
-      <p class="mt-2 text-sm text-zinc-500">
-        Posting, commenting, likes, and reporting are disabled for normal users.
-      </p>
-      <button onclick="openAdminBypass()" class="mt-6 btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 w-full">
-        <i data-lucide="shield-check" class="w-5 h-5"></i>
-        No, I'm admin
-      </button>
-    </div>
-  </div>
-
-  <!-- Top Nav -->
-  <nav class="glass fixed top-0 w-full z-40">
-    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3 min-w-0">
-        <div class="w-10 h-10 rounded-2xl bg-emerald-500/15 ring-soft flex items-center justify-center shrink-0">
-          <i data-lucide="ghost" class="w-5 h-5 text-emerald-400"></i>
-        </div>
-        <div class="leading-tight min-w-0">
-          <div class="flex items-center gap-2 min-w-0">
-            <h1 class="font-extrabold tracking-tight text-[15px] sm:text-base truncate">
-              Bitchless<span class="text-emerald-400">Files</span>
-            </h1>
-            <span id="adminBadge" class="hidden text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 ring-soft shrink-0">
-              ADMIN
-            </span>
-          </div>
-          <p class="text-[12px] text-zinc-500 truncate">Anonymous board • files + media</p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2 shrink-0">
-        <button id="newPostBtn" onclick="toggleModal('uploadModal', true)" class="btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20">
-          <i data-lucide="plus" class="w-5 h-5"></i>
-          <span class="hidden sm:inline">New Post</span>
-        </button>
-
-        <button onclick="toggleDrawer(true)" class="btn bg-white/5 hover:bg-white/10 text-zinc-200 ring-soft">
-          <i data-lucide="menu" class="w-5 h-5"></i>
-          <span class="hidden sm:inline">Menu</span>
-        </button>
-      </div>
-    </div>
-  </nav>
-
-  <!-- Drawer -->
-  <div id="menuDrawer" class="fixed inset-0 z-50 pointer-events-none">
-    <div class="absolute inset-0 bg-black/50 transition-opacity opacity-0 pointer-events-none" id="drawerBackdrop" onclick="toggleDrawer(false)"></div>
-
-    <div class="absolute right-0 top-0 h-full w-[320px] drawer pointer-events-auto p-5 flex flex-col panel" id="drawerPanel">
-      <div class="flex justify-between items-center mb-5">
-        <div class="flex items-center gap-2">
-          <div class="w-9 h-9 rounded-xl bg-white/5 ring-soft flex items-center justify-center">
-            <i data-lucide="sparkles" class="w-5 h-5 text-zinc-300"></i>
-          </div>
-          <h2 class="font-extrabold text-lg">Menu</h2>
-        </div>
-        <button onclick="toggleDrawer(false)" class="p-2 hover:bg-white/5 rounded-xl ring-soft">
-          <i data-lucide="x" class="text-zinc-300"></i>
-        </button>
-      </div>
-
-      <div class="space-y-2">
-        <a href="#" class="block p-3 rounded-2xl hover:bg-white/5 text-zinc-200 ring-soft flex items-center gap-3">
-          <i data-lucide="home" class="w-5 h-5 text-zinc-300"></i>
-          <div>
-            <div class="font-semibold">Home</div>
-            <div class="text-xs text-zinc-500">Feed</div>
-          </div>
-        </a>
-
-        <button onclick="toggleModal('loginModal', true)" class="w-full text-left p-3 rounded-2xl hover:bg-white/5 text-zinc-200 ring-soft flex items-center gap-3">
-          <i data-lucide="shield" class="w-5 h-5 text-emerald-300"></i>
-          <div>
-            <div class="font-semibold">Login as Admin</div>
-            <div class="text-xs text-zinc-500">Enables admin panel</div>
-          </div>
-        </button>
-
-        <button id="adminPanelBtn" onclick="openAdminPanel()" class="hidden w-full text-left p-3 rounded-2xl hover:bg-white/5 text-zinc-200 ring-soft flex items-center gap-3">
-          <i data-lucide="layout-dashboard" class="w-5 h-5 text-emerald-300"></i>
-          <div>
-            <div class="font-semibold">Admin Panel</div>
-            <div class="text-xs text-zinc-500">Posts • Reports • Bans • Maintenance</div>
-          </div>
-        </button>
-
-        <button id="logoutBtn" onclick="logoutAdmin()" class="hidden w-full text-left p-3 rounded-2xl hover:bg-white/5 text-zinc-200 ring-soft flex items-center gap-3">
-          <i data-lucide="log-out" class="w-5 h-5 text-zinc-300"></i>
-          <div>
-            <div class="font-semibold">Logout</div>
-            <div class="text-xs text-zinc-500">Disable admin mode</div>
-          </div>
-        </button>
-
-        <div class="mt-4 p-3 rounded-2xl bg-white/5 ring-soft">
-          <div class="text-xs text-zinc-400">
-            Note: This is temporary hosting; data resets when workflow stops.
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-auto pt-5 text-xs text-zinc-600">
-        Bitchless Files V3
-      </div>
-    </div>
-  </div>
-
-  <!-- Main -->
-  <main class="flex-1 w-full max-w-4xl mx-auto pt-24 px-4 pb-20">
-    <div class="grid grid-cols-1 gap-4">
-
-      <!-- Search -->
-      <div class="panel rounded-3xl p-4">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-2xl bg-white/5 ring-soft flex items-center justify-center shrink-0">
-            <i data-lucide="search" class="w-5 h-5 text-zinc-300"></i>
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-xs text-zinc-500 font-semibold">Search</div>
-            <input type="text" id="searchInput" placeholder="Search titles or content..."
-              class="w-full mt-1 bg-transparent outline-none text-sm text-zinc-100 placeholder:text-zinc-600"
-            />
-          </div>
-          <button onclick="loadPosts()" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 shrink-0">
-            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-            <span class="hidden sm:inline">Refresh</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Feed -->
-      <div id="feed" class="space-y-4"></div>
-
-      <div id="emptyState" class="hidden panel rounded-3xl p-8 text-center fade-up">
-        <div class="w-14 h-14 mx-auto rounded-3xl bg-white/5 ring-soft flex items-center justify-center">
-          <i data-lucide="ghost" class="w-7 h-7 text-emerald-300"></i>
-        </div>
-        <h3 class="mt-4 font-extrabold text-lg">No posts yet</h3>
-        <p class="text-sm text-zinc-500 mt-1">Be the first to drop something.</p>
-        <button onclick="toggleModal('uploadModal', true)" class="mt-5 btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20">
-          <i data-lucide="plus" class="w-5 h-5"></i>
-          Create Post
-        </button>
-      </div>
-    </div>
-  </main>
-
-  <!-- Upload Modal -->
-  <div id="uploadModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 modal-bg" onclick="toggleModal('uploadModal', false)"></div>
-
-    <div class="relative w-full max-w-xl panel rounded-[28px] p-5 sm:p-6 shadow-2xl fade-up modal-panel-scroll">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-extrabold">Create Post</h2>
-          <p class="text-sm text-zinc-500 mt-1">Anonymous. Upload multiple files (images/video/audio/files).</p>
-        </div>
-        <button onclick="toggleModal('uploadModal', false)" class="p-2 hover:bg-white/5 rounded-xl ring-soft">
-          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>
-        </button>
-      </div>
-
-      <form id="uploadForm" class="space-y-4 mt-5">
-        <div class="grid sm:grid-cols-2 gap-3">
-          <div class="sm:col-span-2">
-            <label class="text-xs font-semibold text-zinc-400">Title</label>
-            <input type="text" id="postTitle" placeholder="Subject / Title"
-              class="w-full mt-1 bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70"
-            >
-          </div>
-
-          <div class="sm:col-span-2">
-            <label class="text-xs font-semibold text-zinc-400">Text</label>
-            <textarea id="postText" placeholder="What's on your mind?"
-              class="w-full mt-1 bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70 resize-none h-28"
-            ></textarea>
-          </div>
-
-          <div class="sm:col-span-2">
-            <label class="text-xs font-semibold text-zinc-400">Attachments (optional)</label>
-            <div class="flex flex-wrap gap-2 items-center">
-              <label class="inline-flex items-center gap-2 btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 cursor-pointer">
-                <input type="file" id="postFiles" class="hidden" multiple
-                  accept="image/*,video/*,audio/*,.pdf,.zip,.rar,.7z,.txt,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.apk"
-                >
-                <i data-lucide="paperclip" class="w-4 h-4"></i>
-                Add files
-              </label>
-
-              <button type="button" onclick="clearFiles()" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                Clear
-              </button>
-
-              <div id="fileCount" class="text-xs text-zinc-500"></div>
-            </div>
-
-            <!-- ✅ NEW: WhatsApp-style compact preview row (first 3 + “+X more”) -->
-            <div id="previewWrap" class="hidden mt-3">
-              <div id="previewRow" class="preview-row"></div>
-            </div>
-
-            <!-- Existing list kept (now used as expanded manager view) -->
-            <div id="previewList" class="hidden mt-3 space-y-2 preview-scroll"></div>
-          </div>
-
-          <div class="sm:col-span-2 hidden" id="progressContainer">
-            <div class="text-xs text-zinc-500 mb-2">Uploading…</div>
-            <div class="w-full bg-white/10 rounded-full h-2 overflow-hidden">
-              <div id="progressBar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
-            </div>
-          </div>
-
-          <!-- ✅ FIX: on mobile button is FULL WIDTH (no horizontal scroll needed) -->
-          <!-- ✅ ALSO: sticky footer so button stays visible even if you scroll inside modal -->
-          <div class="sm:col-span-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 sticky-footer">
-            <div class="text-xs text-zinc-500">Profanity filter enabled</div>
-            <button type="submit" class="btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 w-full sm:w-auto">
-              <i data-lucide="send" class="w-4 h-4"></i>
-              Post
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Login Modal -->
-  <div id="loginModal" class="fixed inset-0 z-[95] hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 modal-bg" onclick="closeLoginModal()"></div>
-
-    <div class="relative w-full max-w-sm panel rounded-[28px] p-6 shadow-2xl fade-up">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-extrabold">Admin Login</h2>
-          <p class="text-sm text-zinc-500 mt-1">Enables admin panel + admin access</p>
-        </div>
-        <button onclick="closeLoginModal()" class="p-2 hover:bg-white/5 rounded-xl ring-soft">
-          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>
-        </button>
-      </div>
-
-      <div class="mt-5 space-y-3">
-        <input type="password" id="adminPass" placeholder="Enter Secret Password"
-          class="w-full bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70 text-white"
-        >
-        <button onclick="loginAdmin()" class="w-full btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20">
-          <i data-lucide="shield-check" class="w-4 h-4"></i>
-          Login
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Post Detail Modal -->
-  <div id="postModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 modal-bg" onclick="closePostModal()"></div>
-    <div class="relative w-full max-w-3xl panel rounded-[28px] p-4 sm:p-6 shadow-2xl fade-up modal-panel-scroll">
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
-          <h2 id="postModalTitle" class="text-xl font-extrabold truncate">Post</h2>
-          <p id="postModalMeta" class="text-sm text-zinc-500 mt-1 truncate">Anonymous</p>
-        </div>
-        <button onclick="closePostModal()" class="p-2 hover:bg-white/5 rounded-xl ring-soft shrink-0">
-          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>
-        </button>
-      </div>
-
-      <div id="postModalBody" class="mt-4"></div>
-
-      <div class="mt-5">
-        <div class="text-sm font-extrabold">Comments</div>
-        <div id="commentsList" class="mt-3 space-y-3"></div>
-
-        <div class="mt-4 flex flex-col sm:flex-row gap-2">
-          <input id="commentInput" type="text" placeholder="Write an anonymous comment..."
-            class="flex-1 bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70"
-          >
-          <button onclick="addComment()" class="btn bg-emerald-600 hover:bg-emerald-500 text-white sm:w-auto w-full">
-            <i data-lucide="message-circle" class="w-4 h-4"></i>
-            Send
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Report Modal -->
-  <div id="reportModal" class="fixed inset-0 z-[65] hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 modal-bg" onclick="toggleModal('reportModal', false)"></div>
-    <div class="relative w-full max-w-lg panel rounded-[28px] p-6 shadow-2xl fade-up modal-panel-scroll">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <h2 class="text-xl font-extrabold">Report Post</h2>
-          <p class="text-sm text-zinc-500 mt-1">Choose a reason</p>
-        </div>
-        <button onclick="toggleModal('reportModal', false)" class="p-2 hover:bg-white/5 rounded-xl ring-soft">
-          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>
-        </button>
-      </div>
-
-      <div class="mt-4 space-y-2">
-        <select id="reportReason"
-          class="w-full bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70"
-          onchange="handleReportReasonChange()"
-        >
-          <option>Spam</option>
-          <option>Hate or abuse</option>
-          <option>Illegal content</option>
-          <option>Harassment</option>
-          <option>Misinformation</option>
-          <option>Something else</option>
-        </select>
-
-        <textarea id="reportMessage" class="hidden w-full bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70 h-24 resize-none"
-          placeholder="Explain (required for Something else)"></textarea>
-
-        <button onclick="submitReport()" class="w-full btn bg-amber-600 hover:bg-amber-500 text-white">
-          <i data-lucide="flag" class="w-4 h-4"></i>
-          Submit report
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Admin Panel Modal -->
-  <div id="adminModal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 modal-bg" onclick="closeAdminPanel()"></div>
-    <div class="relative w-full max-w-6xl panel rounded-[28px] p-4 sm:p-6 shadow-2xl fade-up overflow-hidden">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <h2 class="text-2xl font-extrabold">Admin Panel</h2>
-          <p id="adminMeta" class="text-sm text-zinc-500 mt-1">Loading…</p>
-        </div>
-        <button onclick="closeAdminPanel()" class="p-2 hover:bg-white/5 rounded-xl ring-soft">
-          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>
-        </button>
-      </div>
-
-      <div class="mt-4 flex flex-wrap gap-2">
-        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminTab('posts')">
-          <i data-lucide="files" class="w-4 h-4"></i> Posts
-        </button>
-        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminTab('reports')">
-          <i data-lucide="flag" class="w-4 h-4"></i> Reports
-        </button>
-        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminTab('bans')">
-          <i data-lucide="ban" class="w-4 h-4"></i> Bans
-        </button>
-        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminTab('maintenance')">
-          <i data-lucide="wrench" class="w-4 h-4"></i> Maintenance
-        </button>
-      </div>
-
-      <div id="adminContent" class="mt-4 max-h-[70vh] overflow-auto pr-1"></div>
-    </div>
-  </div>
-
-  <!-- Safety Details Modal -->
-  <div id="safetyModal" class="fixed inset-0 z-[75] hidden flex items-center justify-center p-4">
-    <div class="absolute inset-0 modal-bg" onclick="closeSafetyDetails()"></div>
-    <div class="relative w-full max-w-2xl panel rounded-[28px] p-6 shadow-2xl fade-up modal-panel-scroll">
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
-          <h2 id="safetyTitle" class="text-xl font-extrabold truncate">Safety Details</h2>
-          <p class="text-sm text-zinc-500 mt-1">Admin-only</p>
-        </div>
-        <button onclick="closeSafetyDetails()" class="p-2 hover:bg-white/5 rounded-xl ring-soft shrink-0">
-          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>
-        </button>
-      </div>
-
-      <div id="safetyBody" class="mt-5"></div>
-
-      <div class="mt-5 flex flex-wrap gap-2 justify-end">
-        <button id="safetyDeleteBtn" class="btn bg-red-500/12 hover:bg-red-500/18 text-red-200 ring-soft">
-          <i data-lucide="trash-2" class="w-4 h-4"></i> Delete post
-        </button>
-        <button id="safetyBanBtn" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200">
-          <i data-lucide="ban" class="w-4 h-4"></i> Ban IP
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ✅ Media Viewer (tap image/video → fullscreen, swipe next/prev, zoom images) -->
-  <div id="mediaViewer" class="fixed inset-0 z-[98] hidden">
-    <div class="absolute inset-0 bg-black/90" onclick="closeMediaViewer()"></div>
-
-    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
-      <div class="viewer-toolbar rounded-2xl px-3 py-2 flex items-center gap-2">
-        <!-- ✅ FIX: don't pass `event` (not available in some browsers) -->
-        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="prevMedia()">
-          <i data-lucide="chevron-left" class="w-5 h-5"></i>
-        </button>
-        <div class="text-xs text-zinc-300 viewer-counter px-2">
-          <span id="viewerCounter">1 / 1</span>
-        </div>
-        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="nextMedia()">
-          <i data-lucide="chevron-right" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="viewer-toolbar rounded-2xl px-3 py-2 flex items-center gap-2">
-        <button id="zoomOutBtn" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="zoomOut()">
-          <i data-lucide="zoom-out" class="w-5 h-5"></i>
-        </button>
-        <button id="zoomResetBtn" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="zoomReset()">
-          <i data-lucide="maximize-2" class="w-5 h-5"></i>
-        </button>
-        <button id="zoomInBtn" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="zoomIn()">
-          <i data-lucide="zoom-in" class="w-5 h-5"></i>
-        </button>
-
-        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="closeMediaViewer()">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-    </div>
-
-    <div id="viewerStage" class="viewer-stage absolute inset-0 pt-20 pb-6 px-3">
-      <div id="viewerWrap" class="viewer-media-wrap"></div>
-    </div>
-  </div>
-
-  <!-- Toasts -->
-  <div id="toasts" class="fixed bottom-4 right-4 z-[90] space-y-2"></div>
-
+  <!-- ✅ Firebase init (your config) -->
   <script>
-    lucide.createIcons();
-
-    // ---------- State ----------
-    let allPosts = [];
-    let isAdmin = false;
-    let adminToken = localStorage.getItem("adminToken") || null;
-
-    let selectedPostId = null;
-    let reportPostId = null;
-    let lastMaintenance = false;
-
-    // safety modal state
-    let safetyTargetPostId = null;
-    let safetyTargetIp = null;
-
-    // upload state
-    const postFilesInput = document.getElementById("postFiles");
-    let selectedFiles = [];
-
-    // ✅ upload preview UI state (compact row + expand)
-    let previewsExpanded = false;
-
-    // viewer state (current post attachments)
-    let viewerItems = [];
-    let viewerIndex = 0;
-
-    // viewer zoom/pan state (images)
-    let viewerScale = 1;
-    let viewerTx = 0;
-    let viewerTy = 0;
-    let viewerPointers = new Map(); // pointerId -> {x,y}
-    let viewerStartScale = 1;
-    let viewerStartTx = 0;
-    let viewerStartTy = 0;
-    let viewerStartDist = 0;
-    let viewerIsPanning = false;
-    let viewerLastPan = { x: 0, y: 0 };
-    let viewerIsImage = false;
-
-    // swipe state for stage
-    let stageSwipe = { active: false, x0: 0, y0: 0, moved: false };
-
-    // ---------- Helpers ----------
-    function escapeHtml(str) {
-      return String(str || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    function formatBytes(bytes) {
-      const b = Number(bytes || 0);
-      if (!b) return "0 B";
-      const units = ["B","KB","MB","GB"];
-      let i = 0, v = b;
-      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-      return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
-    }
-
-    function toast(message, type="ok") {
-      const root = document.getElementById('toasts');
-      const el = document.createElement('div');
-      const icon = type === "ok" ? "check-circle-2" : (type === "warn" ? "alert-triangle" : "x-circle");
-      const bg = type === "ok" ? "bg-emerald-500/12" : (type === "warn" ? "bg-amber-500/12" : "bg-red-500/12");
-      const ring = type === "ok" ? "border-emerald-500/20" : (type === "warn" ? "border-amber-500/20" : "border-red-500/20");
-      el.className = `toast panel ${bg} ${ring} border rounded-2xl px-4 py-3 flex items-start gap-3 shadow-xl`;
-      el.innerHTML = `
-        <div class="mt-0.5 w-9 h-9 rounded-2xl bg-white/5 ring-soft flex items-center justify-center">
-          <i data-lucide="${icon}" class="w-5 h-5 text-zinc-200"></i>
-        </div>
-        <div class="text-sm text-zinc-200 leading-snug">${escapeHtml(message)}</div>
-      `;
-      root.appendChild(el);
-      lucide.createIcons();
-      setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateY(6px)"; }, 2600);
-      setTimeout(() => { el.remove(); }, 3000);
-    }
-
-    function toggleModal(id, show) {
-      const el = document.getElementById(id);
-      if (show) el.classList.remove('hidden');
-      else el.classList.add('hidden');
-    }
-
-    function closeLoginModal() {
-      toggleModal("loginModal", false);
-      if (lastMaintenance && !isAdmin) {
-        document.getElementById("maintenanceScreen").classList.remove("hidden");
-      }
-    }
-
-    function toggleDrawer(open) {
-      const drawer = document.getElementById('drawerPanel');
-      const backdrop = document.getElementById('drawerBackdrop');
-      const container = document.getElementById('menuDrawer');
-
-      if (open) {
-        container.classList.remove('pointer-events-none');
-        container.classList.add('pointer-events-auto');
-        drawer.classList.add('open');
-        backdrop.classList.remove('opacity-0', 'pointer-events-none');
-        backdrop.classList.add('pointer-events-auto');
-      } else {
-        drawer.classList.remove('open');
-        backdrop.classList.add('opacity-0', 'pointer-events-none');
-        backdrop.classList.remove('pointer-events-auto');
-        setTimeout(() => {
-          container.classList.add('pointer-events-none');
-          container.classList.remove('pointer-events-auto');
-        }, 280);
-      }
-    }
-
-    function setAdminUI(on) {
-      isAdmin = on;
-      document.getElementById("adminBadge").classList.toggle("hidden", !on);
-      document.getElementById("logoutBtn").classList.toggle("hidden", !on);
-      document.getElementById("adminPanelBtn").classList.toggle("hidden", !on);
-    }
-
-    function authHeaders(extra={}) {
-      const h = { ...extra };
-      if (adminToken) h["x-admin-token"] = adminToken;
-      return h;
-    }
-
-    function skeleton() {
-      return `
-        <div class="panel rounded-3xl p-5 animate-pulse">
-          <div class="h-4 w-40 bg-white/10 rounded"></div>
-          <div class="mt-3 h-3 w-full bg-white/10 rounded"></div>
-          <div class="mt-2 h-3 w-5/6 bg-white/10 rounded"></div>
-          <div class="mt-4 h-56 w-full bg-white/10 rounded-2xl"></div>
-        </div>
-      `;
-    }
-
-    // ---------- Maintenance ----------
-    async function checkMaintenance() {
-      try {
-        const res = await fetch("/api/status");
-        const data = await res.json();
-        const maintenance = !!data.maintenance;
-        lastMaintenance = maintenance;
-
-        if (maintenance && !isAdmin) {
-          document.getElementById("maintenanceScreen").classList.remove("hidden");
-          document.getElementById("newPostBtn").classList.add("opacity-50");
-        } else {
-          document.getElementById("maintenanceScreen").classList.add("hidden");
-          document.getElementById("newPostBtn").classList.remove("opacity-50");
-        }
-      } catch (e) {}
-    }
-
-    function openAdminBypass() {
-      document.getElementById("maintenanceScreen").classList.add("hidden");
-      toggleModal("loginModal", true);
-      setTimeout(() => {
-        const input = document.getElementById("adminPass");
-        if (input) input.focus();
-      }, 50);
-    }
-
-    // ---------- Admin auth verification ----------
-    async function verifyAdminToken() {
-      if (!adminToken) { setAdminUI(false); return; }
-      try {
-        const res = await fetch("/api/admin/status", { headers: authHeaders() });
-        if (res.ok) setAdminUI(true);
-        else {
-          adminToken = null;
-          localStorage.removeItem("adminToken");
-          setAdminUI(false);
-        }
-      } catch (e) { setAdminUI(false); }
-    }
-
-    // ---------- Login / logout ----------
-    async function loginAdmin() {
-      const pass = document.getElementById('adminPass').value;
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: pass })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (data.success && data.token) {
-          adminToken = data.token;
-          localStorage.setItem("adminToken", adminToken);
-          setAdminUI(true);
-          toast("Admin mode enabled", "ok");
-          toggleModal('loginModal', false);
-          toggleDrawer(false);
-          await checkMaintenance();
-          await loadPosts();
-        } else {
-          toast("Wrong password", "bad");
-        }
-      } catch (e) {
-        toast("Network error", "bad");
-      }
-    }
-
-    function logoutAdmin() {
-      adminToken = null;
-      localStorage.removeItem("adminToken");
-      setAdminUI(false);
-      toast("Logged out", "warn");
-      toggleDrawer(false);
-      checkMaintenance();
-      loadPosts();
-    }
-
-    // ---------- Upload: multi-file preview ----------
-    postFilesInput.addEventListener("change", () => {
-      selectedFiles = Array.from(postFilesInput.files || []);
-      previewsExpanded = false;
-      renderFilePreview();
-    });
-
-    function clearFiles() {
-      postFilesInput.value = "";
-      selectedFiles = [];
-      previewsExpanded = false;
-      renderFilePreview();
-    }
-
-    function kindFromFile(file) {
-      const t = (file.type || "").toLowerCase();
-      if (t.startsWith("image/")) return "image";
-      if (t.startsWith("video/")) return "video";
-      if (t.startsWith("audio/")) return "audio";
-      return "file";
-    }
-
-    // ✅ toggles expanded manager list
-    function toggleExpandedPreviews() {
-      previewsExpanded = !previewsExpanded;
-      renderFilePreview();
-    }
-
-    // ✅ updated preview renderer:
-    // - show 3 thumbs + "+X more" (always when files > 3)
-    // - clicking "+X more" expands list
-    // - list has remove buttons
-    function renderFilePreview() {
-      const wrap = document.getElementById("previewWrap");
-      const row = document.getElementById("previewRow");
-      const list = document.getElementById("previewList");
-      const count = document.getElementById("fileCount");
-
-      count.textContent = selectedFiles.length ? `${selectedFiles.length} file(s) selected` : "";
-
-      if (!selectedFiles.length) {
-        wrap.classList.add("hidden");
-        row.innerHTML = "";
-        list.classList.add("hidden");
-        list.innerHTML = "";
-        return;
-      }
-
-      wrap.classList.remove("hidden");
-
-      const maxThumbs = 3;
-      const extra = Math.max(0, selectedFiles.length - maxThumbs);
-
-      const compactFiles = selectedFiles.slice(0, maxThumbs);
-
-      row.innerHTML = compactFiles.map((f, idx) => {
-        const kind = kindFromFile(f);
-        const actualIndex = idx;
-        let inner = "";
-
-        if (kind === "image") {
-          const url = URL.createObjectURL(f);
-          inner = `<img src="${url}" alt="">`;
-        } else if (kind === "video") {
-          inner = `<div class="thumb-icon"><i data-lucide="video" class="w-6 h-6 text-zinc-200"></i></div>`;
-        } else if (kind === "audio") {
-          inner = `<div class="thumb-icon"><i data-lucide="music" class="w-6 h-6 text-zinc-200"></i></div>`;
-        } else {
-          inner = `<div class="thumb-icon"><i data-lucide="file" class="w-6 h-6 text-zinc-200"></i></div>`;
-        }
-
-        return `
-          <div class="thumb">
-            ${inner}
-            <button type="button" class="remove-x" onclick="removeSelectedFile(${actualIndex})" aria-label="Remove">
-              <i data-lucide="x" class="w-4 h-4 text-zinc-100"></i>
-            </button>
-          </div>
-        `;
-      }).join("");
-
-      /* ✅ FIX: always show +X more when there are more than 3 files */
-      if (extra > 0) {
-        row.innerHTML += `
-          <div class="more-pill" onclick="toggleExpandedPreviews()">
-            <i data-lucide="${previewsExpanded ? "chevrons-up" : "layers"}" class="w-4 h-4 text-zinc-200"></i>
-            +${extra} more
-          </div>
-        `;
-      } else {
-        /* Keep a small manage pill when <= 3 so user can still open list if desired */
-        row.innerHTML += `
-          <div class="more-pill" onclick="toggleExpandedPreviews()">
-            <i data-lucide="${previewsExpanded ? "chevrons-up" : "sliders-horizontal"}" class="w-4 h-4 text-zinc-200"></i>
-            ${previewsExpanded ? "Hide list" : "Manage"}
-          </div>
-        `;
-      }
-
-      // Expanded manager list (uses existing previewList)
-      if (previewsExpanded) {
-        list.classList.remove("hidden");
-        list.innerHTML = selectedFiles.map((f, idx) => {
-          const kind = kindFromFile(f);
-          const size = formatBytes(f.size);
-
-          const showName = (kind === "file");
-          const name = escapeHtml(f.name);
-
-          if (kind === "image") {
-            const url = URL.createObjectURL(f);
-            return `
-              <div class="panel rounded-2xl p-3 flex items-center gap-3">
-                <img src="${url}" class="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black/30" />
-                <div class="min-w-0 flex-1">
-                  <div class="text-sm font-semibold text-zinc-200">IMAGE</div>
-                  <div class="text-xs text-zinc-500">${size}</div>
-                </div>
-                <button type="button" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="removeSelectedFile(${idx})">
-                  <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
-              </div>
-            `;
-          }
-
-          const icon = kind === "video" ? "video" : (kind === "audio" ? "music" : "file");
-          const label = kind === "video" ? "VIDEO" : (kind === "audio" ? "AUDIO" : "FILE");
-
-          return `
-            <div class="panel rounded-2xl p-3 flex items-center gap-3">
-              <div class="w-12 h-12 rounded-xl bg-white/5 ring-soft flex items-center justify-center">
-                <i data-lucide="${icon}" class="w-5 h-5 text-zinc-200"></i>
-              </div>
-              <div class="min-w-0 flex-1">
-                ${showName ? `<div class="text-sm font-semibold truncate">${name}</div>` : `<div class="text-sm font-semibold text-zinc-200">${label}</div>`}
-                <div class="text-xs text-zinc-500">${size}</div>
-              </div>
-              <button type="button" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="removeSelectedFile(${idx})">
-                <i data-lucide="x" class="w-4 h-4"></i>
-              </button>
-            </div>
-          `;
-        }).join("");
-      } else {
-        list.classList.add("hidden");
-        list.innerHTML = "";
-      }
-
-      lucide.createIcons();
-    }
-
-    function removeSelectedFile(index) {
-      selectedFiles.splice(index, 1);
-      if (!selectedFiles.length) previewsExpanded = false;
-      renderFilePreview();
-    }
-
-    // ---------- Upload submit ----------
-    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const btn = e.target.querySelector('button[type="submit"]');
-      const bar = document.getElementById('progressBar');
-      const barContainer = document.getElementById('progressContainer');
-
-      btn.disabled = true;
-      barContainer.classList.remove('hidden');
-
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 8;
-        if (progress > 92) progress = 92;
-        bar.style.width = progress + '%';
-      }, 160);
-
-      const formData = new FormData();
-      formData.append('title', document.getElementById('postTitle').value);
-      formData.append('text', document.getElementById('postText').value);
-
-      for (const f of selectedFiles) formData.append('files', f);
-
-      try {
-        const res = await fetch('/api/upload', { method: 'POST', body: formData, headers: authHeaders() });
-
-        clearInterval(interval);
-        bar.style.width = '100%';
-
-        const data = await res.json().catch(() => ({}));
-
-        if (res.ok) {
-          toast("Posted!", "ok");
-          setTimeout(() => {
-            toggleModal('uploadModal', false);
-            document.getElementById('uploadForm').reset();
-            clearFiles();
-            barContainer.classList.add('hidden');
-            bar.style.width = '0%';
-            btn.disabled = false;
-            loadPosts();
-          }, 450);
-        } else {
-          toast(data.error || "Upload failed", "bad");
-          btn.disabled = false;
-          barContainer.classList.add('hidden');
-          bar.style.width = '0%';
-          await checkMaintenance();
-        }
-      } catch (err) {
-        toast("Network error", "bad");
-        btn.disabled = false;
-        barContainer.classList.add('hidden');
-        bar.style.width = '0%';
-      }
-    });
-
-    // ---------- Search ----------
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      const q = e.target.value.toLowerCase();
-      const filtered = allPosts.filter(p =>
-        (p.title || '').toLowerCase().includes(q) ||
-        (p.text || '').toLowerCase().includes(q)
-      );
-      renderPosts(filtered);
-    });
-
-    // ---------- Load posts ----------
-    async function loadPosts() {
-      const feed = document.getElementById('feed');
-      feed.innerHTML = skeleton();
-
-      try {
-        const res = await fetch('/api/posts');
-        allPosts = await res.json();
-        renderPosts(allPosts);
-        await checkMaintenance();
-      } catch (e) {
-        feed.innerHTML = "";
-        toast("Could not load posts", "bad");
-      }
-    }
-
-    // ---------- Interactions ----------
-    async function likePost(id) {
-      try {
-        const res = await fetch(`/api/posts/${id}/like`, { method: "POST", headers: authHeaders() });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Like failed", "bad");
-        updateCounts(id, data.likes, data.dislikes);
-      } catch (e) { toast("Network error", "bad"); }
-    }
-
-    async function dislikePost(id) {
-      try {
-        const res = await fetch(`/api/posts/${id}/dislike`, { method: "POST", headers: authHeaders() });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Dislike failed", "bad");
-        updateCounts(id, data.likes, data.dislikes);
-      } catch (e) { toast("Network error", "bad"); }
-    }
-
-    function updateCounts(id, likes, dislikes) {
-      const el = document.querySelector(`[data-post="${id}"]`);
-      if (!el) return;
-      const l = el.querySelector(`[data-likecount="${id}"]`);
-      const d = el.querySelector(`[data-dislikecount="${id}"]`);
-      if (l) l.textContent = likes;
-      if (d) d.textContent = dislikes;
-      const p = allPosts.find(x => x.id === id);
-      if (p) { p.likes = likes; p.dislikes = dislikes; }
-    }
-
-    // ---------- Media rendering ----------
-    function renderAttachments(attachments, mode="feed") {
-      const at = Array.isArray(attachments) ? attachments : [];
-      if (!at.length) return "";
-
-      const maxFeedItems = 3;
-      const shown = (mode === "feed") ? at.slice(0, maxFeedItems) : at;
-      const extra = (mode === "feed" && at.length > maxFeedItems) ? (at.length - maxFeedItems) : 0;
-
-      const items = shown.map((a, idx) => {
-        const url = a.url;
-        const name = escapeHtml(a.name || "file");
-        const kind = a.kind || "file";
-
-        const click = (mode === "detail")
-          ? `onclick="openMediaViewer(${idx})"`
-          : "";
-
-        if (kind === "image") {
-          return `
-            <button type="button" class="media-card text-left" ${click} aria-label="Open image">
-              <img src="${url}" class="w-full h-40 sm:h-44 object-cover" loading="lazy"/>
-            </button>
-          `;
-        }
-        if (kind === "video") {
-          return `
-            <button type="button" class="media-card p-2 text-left" ${click} aria-label="Open video">
-              <div class="relative">
-                <video class="w-full rounded-xl bg-black/40 pointer-events-none" muted playsinline preload="metadata">
-                  <source src="${url}" type="${a.mimetype || 'video/mp4'}">
-                </video>
-                <div class="absolute inset-0 grid place-items-center">
-                  <div class="w-12 h-12 rounded-2xl bg-black/55 ring-soft flex items-center justify-center">
-                    <i data-lucide="play" class="w-6 h-6 text-zinc-100"></i>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-2 text-xs text-zinc-500 truncate">${name}</div>
-            </button>
-          `;
-        }
-        if (kind === "audio") {
-          return `
-            <div class="media-card p-3">
-              <div class="text-sm font-semibold truncate mb-2">${name}</div>
-              <audio controls class="w-full">
-                <source src="${url}" type="${a.mimetype || 'audio/mpeg'}">
-              </audio>
-            </div>
-          `;
-        }
-
-        return `
-          <a class="media-card p-3 block hover:bg-white/5 transition" href="${url}" target="_blank" rel="noopener">
-            <div class="flex items-center gap-2">
-              <i data-lucide="file" class="w-4 h-4 text-zinc-300"></i>
-              <div class="min-w-0">
-                <div class="text-sm font-semibold truncate">${name}</div>
-                <div class="text-xs text-zinc-500">Download</div>
-              </div>
-            </div>
-          </a>
-        `;
-      }).join("");
-
-      const badge = extra ? `
-        <div class="file-pill text-xs text-zinc-200 bg-white/5 ring-soft">
-          <i data-lucide="layers" class="w-4 h-4"></i> +${extra} more
-        </div>
-      ` : "";
-
-      return `
-        <div class="mt-4">
-          <div class="media-grid">${items}</div>
-          ${badge ? `<div class="mt-3">${badge}</div>` : ``}
-        </div>
-      `;
-    }
-
-    // ---------- Post modal ----------
-    async function openPostModal(id) {
-      selectedPostId = id;
-      toggleModal("postModal", true);
-      document.getElementById("postModalBody").innerHTML = skeleton();
-      document.getElementById("commentsList").innerHTML = "";
-
-      try {
-        const res = await fetch(`/api/posts/${id}`);
-        const post = await res.json();
-
-        if (!res.ok) {
-          toast(post.error || "Failed to open post", "bad");
-          closePostModal();
-          return;
-        }
-
-        document.getElementById("postModalTitle").textContent = post.title || "Untitled";
-        document.getElementById("postModalMeta").textContent = `Anonymous • ${post.date || ""}`;
-
-        // ✅ set viewer items to THIS post attachments so viewer can swipe
-        viewerItems = Array.isArray(post.attachments) ? post.attachments : [];
-
-        const adminSafetyBtn = (isAdmin && adminToken)
-          ? `
-            <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="openPostSafety(${post.id})">
-              <i data-lucide="shield-alert" class="w-4 h-4"></i> Safety
-            </button>
-          `
-          : "";
-
-        const mediaHtml = renderAttachments(post.attachments || [], "detail");
-
-        document.getElementById("postModalBody").innerHTML = `
-          <div class="space-y-3">
-            ${mediaHtml}
-            <div class="text-sm text-zinc-200 whitespace-pre-wrap">${escapeHtml(post.text || "")}</div>
-
-            <div class="action-row pt-2">
-              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="likePost(${post.id})">
-                <i data-lucide="thumbs-up" class="w-4 h-4"></i> <span>${post.likes}</span>
-              </button>
-              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="dislikePost(${post.id})">
-                <i data-lucide="thumbs-down" class="w-4 h-4"></i> <span>${post.dislikes}</span>
-              </button>
-              <button class="btn bg-amber-600/20 hover:bg-amber-600/30 text-amber-200 ring-soft" onclick="openReport(${post.id})">
-                <i data-lucide="flag" class="w-4 h-4"></i> Report
-              </button>
-              ${adminSafetyBtn}
-            </div>
-          </div>
-        `;
-
-        renderComments(post.comments || []);
-        lucide.createIcons();
-      } catch (e) {
-        toast("Network error", "bad");
-        closePostModal();
-      }
-    }
-
-    function closePostModal() {
-      selectedPostId = null;
-      toggleModal("postModal", false);
-    }
-
-    function renderComments(comments) {
-      const list = document.getElementById("commentsList");
-      list.innerHTML = "";
-
-      if (!comments || comments.length === 0) {
-        list.innerHTML = `<div class="text-sm text-zinc-500">No comments yet.</div>`;
-        return;
-      }
-
-      comments.forEach(c => {
-        const safeBtn = (isAdmin && adminToken)
-          ? `
-            <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="openCommentSafety(${selectedPostId}, ${c.id})">
-              <i data-lucide="shield" class="w-4 h-4"></i>
-              Safety
-            </button>
-          ` : "";
-
-        const el = document.createElement("div");
-        el.className = "panel rounded-2xl p-4";
-        el.innerHTML = `
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0">
-              <div class="text-sm text-zinc-200 whitespace-pre-wrap">${escapeHtml(c.text)}</div>
-              <div class="mt-2 text-xs text-zinc-500">${escapeHtml(c.date || "")}</div>
-            </div>
-            ${safeBtn}
-          </div>
-        `;
-        list.appendChild(el);
-      });
-
-      lucide.createIcons();
-    }
-
-    async function addComment() {
-      if (!selectedPostId) return;
-      const input = document.getElementById("commentInput");
-      const text = input.value.trim();
-      if (!text) return toast("Write a comment first", "warn");
-
-      try {
-        const res = await fetch(`/api/posts/${selectedPostId}/comment`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ text })
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Comment failed", "bad");
-
-        toast("Comment added", "ok");
-        input.value = "";
-        openPostModal(selectedPostId);
-
-        const countEl = document.querySelector(`[data-commentcount="${selectedPostId}"]`);
-        if (countEl) countEl.textContent = data.comments;
-
-        await checkMaintenance();
-      } catch (e) {
-        toast("Network error", "bad");
-      }
-    }
-
-    // ---------- Reporting ----------
-    function handleReportReasonChange() {
-      const reason = document.getElementById("reportReason").value;
-      const msg = document.getElementById("reportMessage");
-      if (reason === "Something else") msg.classList.remove("hidden");
-      else msg.classList.add("hidden");
-    }
-
-    function openReport(postId) {
-      reportPostId = postId;
-      document.getElementById("reportReason").value = "Spam";
-      document.getElementById("reportMessage").value = "";
-      document.getElementById("reportMessage").classList.add("hidden");
-      toggleModal("reportModal", true);
-    }
-
-    async function submitReport() {
-      if (!reportPostId) return;
-
-      const reason = document.getElementById("reportReason").value;
-      const message = document.getElementById("reportMessage").value.trim();
-
-      try {
-        const res = await fetch(`/api/posts/${reportPostId}/report`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ reason, message })
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Report failed", "bad");
-
-        toast("Report submitted", "ok");
-        toggleModal("reportModal", false);
-        reportPostId = null;
-        await checkMaintenance();
-      } catch (e) {
-        toast("Network error", "bad");
-      }
-    }
-
-    // ---------- Media Viewer (fullscreen, swipe, zoom images) ----------
-    function openMediaViewer(index) {
-      if (!Array.isArray(viewerItems) || !viewerItems.length) return;
-      viewerIndex = Math.max(0, Math.min(Number(index || 0), viewerItems.length - 1));
-      resetViewerTransform(true);
-      toggleModal("mediaViewer", true);
-      renderViewer();
-      lockScroll(true);
-      lucide.createIcons();
-    }
-
-    function closeMediaViewer(e) {
-      const ev = e || window.event;
-      if (ev && ev.stopPropagation) ev.stopPropagation();
-      toggleModal("mediaViewer", false);
-      clearViewerPointers();
-      lockScroll(false);
-      // stop any video playback when closing
-      const wrap = document.getElementById("viewerWrap");
-      const vid = wrap.querySelector("video");
-      if (vid) { try { vid.pause(); } catch(_){} }
-    }
-
-    function lockScroll(on) {
-      document.body.style.overflow = on ? "hidden" : "";
-    }
-
-    function setViewerCounter() {
-      document.getElementById("viewerCounter").textContent = `${viewerIndex + 1} / ${viewerItems.length}`;
-    }
-
-    function renderViewer() {
-      const wrap = document.getElementById("viewerWrap");
-      wrap.innerHTML = "";
-
-      const item = viewerItems[viewerIndex];
-      const kind = item?.kind || "file";
-      const url = item?.url;
-
-      setViewerCounter();
-
-      const zoomBtns = ["zoomInBtn","zoomOutBtn","zoomResetBtn"];
-      viewerIsImage = (kind === "image");
-
-      zoomBtns.forEach(id => {
-        const el = document.getElementById(id);
-        el.style.opacity = viewerIsImage ? "1" : "0.45";
-        el.style.pointerEvents = viewerIsImage ? "auto" : "none";
-      });
-
-      if (kind === "image") {
-        const img = document.createElement("img");
-        img.className = "viewer-img";
-        img.src = url;
-        img.alt = item?.name || "image";
-
-        img.addEventListener("pointerdown", viewerPointerDown);
-        img.addEventListener("pointermove", viewerPointerMove);
-        img.addEventListener("pointerup", viewerPointerUp);
-        img.addEventListener("pointercancel", viewerPointerUp);
-
-        img.addEventListener("dblclick", (ev) => {
-          ev.preventDefault();
-          if (viewerScale <= 1.05) {
-            viewerScale = 2;
-            viewerTx = 0;
-            viewerTy = 0;
-          } else {
-            viewerScale = 1;
-            viewerTx = 0;
-            viewerTy = 0;
-          }
-          applyViewerTransform(img);
-        });
-
-        wrap.appendChild(img);
-        applyViewerTransform(img);
-      } else if (kind === "video") {
-        const box = document.createElement("div");
-        box.className = "viewer-video";
-
-        const vid = document.createElement("video");
-        vid.controls = true;
-        vid.playsInline = true;
-        vid.className = "w-full h-full";
-        const src = document.createElement("source");
-        src.src = url;
-        src.type = item?.mimetype || "video/mp4";
-        vid.appendChild(src);
-
-        box.appendChild(vid);
-        wrap.appendChild(box);
-      } else {
-        // fallback: open file link
-        wrap.innerHTML = `
-          <div class="panel rounded-3xl p-6 text-center max-w-xl mx-auto">
-            <div class="w-14 h-14 mx-auto rounded-3xl bg-white/5 ring-soft flex items-center justify-center">
-              <i data-lucide="file" class="w-7 h-7 text-zinc-200"></i>
-            </div>
-            <div class="mt-4 font-extrabold text-lg">${escapeHtml(item?.name || "File")}</div>
-            <div class="mt-2 text-sm text-zinc-500">This file type opens in a new tab.</div>
-            <a class="mt-5 btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 w-full" href="${url}" target="_blank" rel="noopener">
-              <i data-lucide="external-link" class="w-4 h-4"></i> Open
-            </a>
-          </div>
-        `;
-        lucide.createIcons();
-      }
-    }
-
-    function prevMedia(e) {
-      const ev = e || window.event;
-      if (ev && ev.stopPropagation) ev.stopPropagation();
-      if (!viewerItems.length) return;
-      viewerIndex = (viewerIndex - 1 + viewerItems.length) % viewerItems.length;
-      resetViewerTransform(true);
-      renderViewer();
-      lucide.createIcons();
-    }
-
-    function nextMedia(e) {
-      const ev = e || window.event;
-      if (ev && ev.stopPropagation) ev.stopPropagation();
-      if (!viewerItems.length) return;
-      viewerIndex = (viewerIndex + 1) % viewerItems.length;
-      resetViewerTransform(true);
-      renderViewer();
-      lucide.createIcons();
-    }
-
-    function zoomIn(e) {
-      const ev = e || window.event;
-      if (ev && ev.stopPropagation) ev.stopPropagation();
-      if (!viewerIsImage) return;
-      viewerScale = Math.min(6, viewerScale + 0.35);
-      applyViewerTransform(document.querySelector("#viewerWrap .viewer-img"));
-    }
-
-    function zoomOut(e) {
-      const ev = e || window.event;
-      if (ev && ev.stopPropagation) ev.stopPropagation();
-      if (!viewerIsImage) return;
-      viewerScale = Math.max(1, viewerScale - 0.35);
-      if (viewerScale === 1) { viewerTx = 0; viewerTy = 0; }
-      applyViewerTransform(document.querySelector("#viewerWrap .viewer-img"));
-    }
-
-    function zoomReset(e) {
-      const ev = e || window.event;
-      if (ev && ev.stopPropagation) ev.stopPropagation();
-      resetViewerTransform(false);
-      applyViewerTransform(document.querySelector("#viewerWrap .viewer-img"));
-    }
-
-    function resetViewerTransform(hard) {
-      viewerScale = 1;
-      viewerTx = 0;
-      viewerTy = 0;
-      viewerIsPanning = false;
-      clearViewerPointers();
-      if (hard) {
-        viewerStartScale = 1;
-        viewerStartTx = 0;
-        viewerStartTy = 0;
-        viewerStartDist = 0;
-      }
-    }
-
-    function applyViewerTransform(imgEl) {
-      if (!imgEl) return;
-      imgEl.style.transform = `translate(${viewerTx}px, ${viewerTy}px) scale(${viewerScale})`;
-    }
-
-    function clearViewerPointers() {
-      viewerPointers.clear();
-      viewerStartDist = 0;
-      viewerIsPanning = false;
-    }
-
-    function dist(a, b) {
-      const dx = a.x - b.x;
-      const dy = a.y - b.y;
-      return Math.hypot(dx, dy);
-    }
-
-    function mid(a, b) {
-      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    }
-
-    function viewerPointerDown(e) {
-      e.stopPropagation();
-      const img = e.currentTarget;
-      img.setPointerCapture(e.pointerId);
-
-      viewerPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-      if (viewerPointers.size === 1) {
-        viewerIsPanning = true;
-        viewerLastPan = { x: e.clientX, y: e.clientY };
-        viewerStartTx = viewerTx;
-        viewerStartTy = viewerTy;
-      }
-
-      if (viewerPointers.size === 2) {
-        const pts = Array.from(viewerPointers.values());
-        viewerStartDist = dist(pts[0], pts[1]);
-        viewerStartScale = viewerScale;
-        viewerStartTx = viewerTx;
-        viewerStartTy = viewerTy;
-      }
-
-      applyViewerTransform(img);
-    }
-
-    function viewerPointerMove(e) {
-      e.stopPropagation();
-      const img = e.currentTarget;
-      if (!viewerPointers.has(e.pointerId)) return;
-
-      viewerPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-      if (viewerPointers.size === 1 && viewerIsPanning && viewerScale > 1.01) {
-        const dx = e.clientX - viewerLastPan.x;
-        const dy = e.clientY - viewerLastPan.y;
-        viewerTx += dx;
-        viewerTy += dy;
-        viewerLastPan = { x: e.clientX, y: e.clientY };
-      }
-
-      if (viewerPointers.size === 2) {
-        const pts = Array.from(viewerPointers.values());
-        const d = dist(pts[0], pts[1]);
-        if (viewerStartDist > 0) {
-          const ratio = d / viewerStartDist;
-          viewerScale = Math.min(6, Math.max(1, viewerStartScale * ratio));
-          if (viewerScale <= 1.01) {
-            viewerScale = 1;
-            viewerTx = 0;
-            viewerTy = 0;
-          }
-        }
-      }
-
-      applyViewerTransform(img);
-    }
-
-    function viewerPointerUp(e) {
-      e.stopPropagation();
-      const img = e.currentTarget;
-      if (img && img.releasePointerCapture) {
-        try { img.releasePointerCapture(e.pointerId); } catch(_) {}
-      }
-      viewerPointers.delete(e.pointerId);
-
-      if (viewerPointers.size === 0) {
-        viewerIsPanning = false;
-        if (viewerScale <= 1.01) {
-          viewerScale = 1;
-          viewerTx = 0;
-          viewerTy = 0;
-        }
-        applyViewerTransform(document.querySelector("#viewerWrap .viewer-img"));
-      }
-
-      if (viewerPointers.size === 1) {
-        const pt = Array.from(viewerPointers.values())[0];
-        viewerLastPan = { x: pt.x, y: pt.y };
-      }
-    }
-
-    // swipe on stage (next/prev)
-    (function setupViewerSwipe() {
-      const stage = document.getElementById("viewerStage");
-
-      stage.addEventListener("touchstart", (e) => {
-        if (!document.getElementById("mediaViewer") || document.getElementById("mediaViewer").classList.contains("hidden")) return;
-        if (!e.touches || e.touches.length !== 1) return;
-
-        stageSwipe.active = true;
-        stageSwipe.moved = false;
-        stageSwipe.x0 = e.touches[0].clientX;
-        stageSwipe.y0 = e.touches[0].clientY;
-      }, { passive: true });
-
-      stage.addEventListener("touchmove", (e) => {
-        if (!stageSwipe.active) return;
-        if (!e.touches || e.touches.length !== 1) return;
-
-        const x = e.touches[0].clientX;
-        const y = e.touches[0].clientY;
-        const dx = x - stageSwipe.x0;
-        const dy = y - stageSwipe.y0;
-
-        if (Math.abs(dx) > 10) stageSwipe.moved = true;
-
-        // if horizontal swipe, prevent scroll
-        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 12) {
-          e.preventDefault();
-        }
-      }, { passive: false });
-
-      stage.addEventListener("touchend", (e) => {
-        if (!stageSwipe.active) return;
-        stageSwipe.active = false;
-
-        // if user is zoomed in on image, don't swipe between media (they probably panning)
-        if (viewerIsImage && viewerScale > 1.01) return;
-
-        // compute swipe
-        const changed = e.changedTouches && e.changedTouches[0];
-        if (!changed) return;
-
-        const dx = changed.clientX - stageSwipe.x0;
-        const dy = changed.clientY - stageSwipe.y0;
-
-        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
-          if (dx < 0) nextMedia();
-          else prevMedia();
-        }
-      }, { passive: true });
-    })();
-
-    // keyboard support
-    document.addEventListener("keydown", (e) => {
-      const open = !document.getElementById("mediaViewer").classList.contains("hidden");
-      if (!open) return;
-      if (e.key === "Escape") closeMediaViewer();
-      if (e.key === "ArrowLeft") prevMedia();
-      if (e.key === "ArrowRight") nextMedia();
-    });
-
-    // ---------- Feed render ----------
-    function renderPosts(posts) {
-      const feed = document.getElementById('feed');
-      const empty = document.getElementById('emptyState');
-
-      feed.innerHTML = '';
-
-      if (!posts || posts.length === 0) {
-        empty.classList.remove("hidden");
-        lucide.createIcons();
-        return;
-      } else {
-        empty.classList.add("hidden");
-      }
-
-      posts.forEach(post => {
-        const el = document.createElement('div');
-        el.className = 'panel rounded-3xl overflow-hidden fade-up';
-        el.setAttribute("data-post", post.id);
-
-        const title = escapeHtml(post.title || 'Untitled');
-        const text = escapeHtml(post.text || '');
-        const date = escapeHtml(post.date || '');
-
-        const mediaHtml = renderAttachments(post.attachments || [], "feed");
-
-        const adminDeleteBtn = (isAdmin && adminToken)
-          ? `
-            <button onclick="adminDeletePost(${post.id})" class="btn bg-red-500/12 hover:bg-red-500/18 text-red-200 ring-soft">
-              <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
-            </button>
-          ` : '';
-
-        el.innerHTML = `
-          <div class="p-5">
-            <div class="flex items-start justify-between gap-3">
-              <button class="text-left flex-1 min-w-0" onclick="openPostModal(${post.id})">
-                <h3 class="font-extrabold text-lg text-zinc-100 leading-snug truncate">${title}</h3>
-                <div class="mt-2 text-sm text-zinc-300/90 whitespace-pre-wrap line-clamp-4">${text}</div>
-              </button>
-              <div class="shrink-0">${adminDeleteBtn}</div>
-            </div>
-
-            ${mediaHtml}
-
-            <div class="action-row mt-4">
-              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="likePost(${post.id})">
-                <i data-lucide="thumbs-up" class="w-4 h-4"></i>
-                <span data-likecount="${post.id}">${post.likes || 0}</span>
-              </button>
-
-              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="dislikePost(${post.id})">
-                <i data-lucide="thumbs-down" class="w-4 h-4"></i>
-                <span data-dislikecount="${post.id}">${post.dislikes || 0}</span>
-              </button>
-
-              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="openPostModal(${post.id})">
-                <i data-lucide="message-circle" class="w-4 h-4"></i>
-                <span data-commentcount="${post.id}">${post.comments || 0}</span>
-              </button>
-
-              <button class="btn bg-amber-600/20 hover:bg-amber-600/30 text-amber-200 ring-soft" onclick="openReport(${post.id})">
-                <i data-lucide="flag" class="w-4 h-4"></i>
-                Report
-              </button>
-            </div>
-
-            <div class="mt-4 flex items-center justify-between gap-2 text-xs text-zinc-500 flex-wrap">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 ring-soft">
-                  <i data-lucide="user" class="w-3.5 h-3.5"></i>
-                  Anonymous
-                </span>
-                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 ring-soft">
-                  <i data-lucide="clock" class="w-3.5 h-3.5"></i>
-                  ${date}
-                </span>
-              </div>
-
-              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200"
-                onclick="navigator.clipboard.writeText(location.origin + '/#post-${post.id}'); toast('Link copied', 'ok');">
-                <i data-lucide="link" class="w-4 h-4"></i>
-                <span class="hidden sm:inline">Copy link</span>
-              </button>
-            </div>
-          </div>
-        `;
-
-        feed.appendChild(el);
-      });
-
-      lucide.createIcons();
-    }
-
-    // ---------- Admin Panel ----------
-    async function openAdminPanel() {
-      if (!isAdmin || !adminToken) return toast("Admin only", "bad");
-      toggleModal("adminModal", true);
-      toggleDrawer(false);
-      await adminTab("posts");
-    }
-    function closeAdminPanel() { toggleModal("adminModal", false); }
-
-    async function adminTab(tab) {
-      if (!isAdmin || !adminToken) return toast("Admin only", "bad");
-      const adminMeta = document.getElementById("adminMeta");
-      const content = document.getElementById("adminContent");
-      content.innerHTML = skeleton();
-      adminMeta.textContent = "Loading…";
-
-      try {
-        const statusRes = await fetch("/api/admin/status", { headers: authHeaders() });
-        if (!statusRes.ok) { toast("Admin session expired", "bad"); logoutAdmin(); closeAdminPanel(); return; }
-        const status = await statusRes.json();
-        adminMeta.textContent = `Maintenance: ${status.maintenance ? "ON" : "OFF"} • Bans: ${status.bannedCount} • Reports: ${status.reportsCount}`;
-
-        if (tab === "posts") {
-          const res = await fetch("/api/admin/posts", { headers: authHeaders() });
-          const data = await res.json();
-
-          content.innerHTML = `
-            <div class="text-sm text-zinc-400 mb-3">All posts (includes owner IP; admin-only)</div>
-            <div class="space-y-3">
-              ${data.map(p => `
-                <div class="panel rounded-2xl p-4">
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="flex-1">
-                      <div class="font-extrabold">${escapeHtml(p.title || "Untitled")}</div>
-                      <div class="text-sm text-zinc-300 mt-1 whitespace-pre-wrap">${escapeHtml(p.text || "")}</div>
-                      <div class="text-xs text-zinc-500 mt-2">Owner IP: <span class="text-zinc-300">${escapeHtml(p.ownerIp)}</span></div>
-                      <div class="text-xs text-zinc-500 mt-1">Likes: ${p.likes} • Dislikes: ${p.dislikes} • Comments: ${p.comments.length} • Files: ${(p.attachments||[]).length}</div>
-                    </div>
-
-                    <div class="flex flex-col gap-2">
-                      <button class="btn bg-red-500/12 hover:bg-red-500/18 text-red-200 ring-soft" onclick="adminDeletePost(${p.id})">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i> Delete
-                      </button>
-                      <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminBanIpPrompt('${escapeHtml(p.ownerIp)}')">
-                        <i data-lucide="ban" class="w-4 h-4"></i> Ban owner IP
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-          `;
-          lucide.createIcons();
-          return;
-        }
-
-        if (tab === "reports") {
-          const res = await fetch("/api/admin/reports", { headers: authHeaders() });
-          const data = await res.json();
-
-          if (!data.length) { content.innerHTML = `<div class="text-sm text-zinc-500">No reports right now.</div>`; return; }
-
-          content.innerHTML = `
-            <div class="text-sm text-zinc-400 mb-3">Reports (includes reporter IP + owner IP; admin-only)</div>
-            <div class="space-y-3">
-              ${data.map(r => `
-                <div class="panel rounded-2xl p-4">
-                  <div class="flex items-start justify-between gap-3">
-                    <div class="flex-1">
-                      <div class="font-extrabold">Reason: ${escapeHtml(r.reason)}</div>
-                      <div class="text-xs text-zinc-500 mt-1">Time: ${escapeHtml(r.timestamp)}</div>
-                      ${r.message ? `<div class="text-sm text-zinc-300 mt-2 whitespace-pre-wrap">Message: ${escapeHtml(r.message)}</div>` : ``}
-
-                      <div class="mt-3 p-3 rounded-2xl bg-white/5 ring-soft">
-                        ${r.post ? `
-                          <div class="font-bold">${escapeHtml(r.post.title || "Untitled")}</div>
-                          <div class="text-sm text-zinc-300 mt-1 whitespace-pre-wrap">${escapeHtml(r.post.text || "")}</div>
-                          <div class="text-xs text-zinc-500 mt-2">Post owner IP: <span class="text-zinc-300">${escapeHtml(r.post.ownerIp)}</span></div>
-                        ` : `<div class="text-sm text-zinc-500">Post deleted or missing.</div>`}
-                      </div>
-
-                      <div class="text-xs text-zinc-500 mt-2">Reporter IP: <span class="text-zinc-300">${escapeHtml(r.reporterIp)}</span></div>
-                    </div>
-
-                    <div class="flex flex-col gap-2">
-                      ${r.post ? `
-                        <button class="btn bg-red-500/12 hover:bg-red-500/18 text-red-200 ring-soft" onclick="adminDeletePost(${r.postId})">
-                          <i data-lucide="trash-2" class="w-4 h-4"></i> Delete post
-                        </button>
-                        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminBanIpPrompt('${escapeHtml(r.post.ownerIp)}')">
-                          <i data-lucide="ban" class="w-4 h-4"></i> Ban owner
-                        </button>
-                      ` : ``}
-
-                      <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminBanIpPrompt('${escapeHtml(r.reporterIp)}')">
-                        <i data-lucide="ban" class="w-4 h-4"></i> Ban reporter
-                      </button>
-
-                      <button class="btn bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-200 ring-soft" onclick="adminIgnoreReport(${r.id})">
-                        <i data-lucide="check" class="w-4 h-4"></i> Ignore
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
-          `;
-          lucide.createIcons();
-          return;
-        }
-
-        if (tab === "bans") {
-          const res = await fetch("/api/admin/bans", { headers: authHeaders() });
-          const data = await res.json();
-
-          const list = (data.banned || []).map(ip => `
-            <div class="panel rounded-2xl p-4 flex items-center justify-between gap-3">
-              <div class="font-mono text-sm text-zinc-200">${escapeHtml(ip)}</div>
-              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminUnbanIp('${escapeHtml(ip)}')">
-                <i data-lucide="undo-2" class="w-4 h-4"></i> Unban
-              </button>
-            </div>
-          `).join("");
-
-          content.innerHTML = `
-            <div class="text-sm text-zinc-400 mb-3">Banned IPs (posting & reporting disabled for banned)</div>
-            <div class="flex gap-2 mb-4">
-              <input id="banIpInput" class="flex-1 bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70"
-                placeholder="Enter IP to ban (copy from admin posts/reports)"/>
-              <button class="btn bg-emerald-600 hover:bg-emerald-500 text-white" onclick="adminBanIpFromInput()">
-                <i data-lucide="ban" class="w-4 h-4"></i> Ban
-              </button>
-            </div>
-            <div class="space-y-2">
-              ${list || `<div class="text-sm text-zinc-500">No banned IPs.</div>`}
-            </div>
-          `;
-          lucide.createIcons();
-          return;
-        }
-
-        if (tab === "maintenance") {
-          content.innerHTML = `
-            <div class="text-sm text-zinc-400 mb-3">Maintenance mode blocks normal users. Admins can bypass.</div>
-            <div class="panel rounded-2xl p-5">
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <div class="font-extrabold">Maintenance Mode</div>
-                  <div class="text-sm text-zinc-500 mt-1">
-                    Current: <span class="font-bold ${status.maintenance ? "text-amber-300" : "text-emerald-300"}">${status.maintenance ? "ON" : "OFF"}</span>
-                  </div>
-                </div>
-
-                <div class="flex gap-2">
-                  <button class="btn bg-amber-600 hover:bg-amber-500 text-white" onclick="setMaintenance(true)">
-                    <i data-lucide="wrench" class="w-4 h-4"></i> Enable
-                  </button>
-                  <button class="btn bg-emerald-600 hover:bg-emerald-500 text-white" onclick="setMaintenance(false)">
-                    <i data-lucide="check" class="w-4 h-4"></i> Disable
-                  </button>
-                </div>
-              </div>
-            </div>
-          `;
-          lucide.createIcons();
-          return;
-        }
-
-      } catch (e) {
-        content.innerHTML = `<div class="text-sm text-zinc-500">Failed to load admin panel.</div>`;
-      }
-    }
-
-    async function adminDeletePost(id) {
-      if (!isAdmin || !adminToken) return toast("Admin only", "bad");
-      if (!confirm("Delete this post?")) return;
-      try {
-        const res = await fetch(`/api/admin/posts/${id}`, { method: "DELETE", headers: authHeaders() });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Delete failed", "bad");
-        toast("Deleted", "ok");
-        closeSafetyDetails();
-        await loadPosts();
-        if (!document.getElementById("adminModal").classList.contains("hidden")) {
-          await adminTab("posts");
-        }
-      } catch (e) { toast("Network error", "bad"); }
-    }
-
-    async function adminIgnoreReport(id) {
-      if (!isAdmin || !adminToken) return toast("Admin only", "bad");
-      try {
-        const res = await fetch(`/api/admin/reports/${id}/ignore`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }) });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Ignore failed", "bad");
-        toast("Report ignored", "ok");
-        await adminTab("reports");
-      } catch (e) { toast("Network error", "bad"); }
-    }
-
-    function adminBanIpPrompt(ip) {
-      const input = prompt("Ban this IP?", ip);
-      if (!input) return;
-      adminBanIp(input.trim());
-    }
-
-    async function adminBanIpFromInput() {
-      const el = document.getElementById("banIpInput");
-      const ip = (el.value || "").trim();
-      if (!ip) return toast("Enter an IP first", "warn");
-      await adminBanIp(ip);
-      el.value = "";
-    }
-
-    async function adminBanIp(ip) {
-      try {
-        const res = await fetch(`/api/admin/ban`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ ip })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Ban failed", "bad");
-        toast("IP banned", "ok");
-        if (!document.getElementById("adminModal").classList.contains("hidden")) {
-          await adminTab("bans");
-        }
-        await checkMaintenance();
-      } catch (e) { toast("Network error", "bad"); }
-    }
-
-    async function adminUnbanIp(ip) {
-      try {
-        const res = await fetch(`/api/admin/unban`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ ip })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Unban failed", "bad");
-        toast("IP unbanned", "ok");
-        await adminTab("bans");
-        await checkMaintenance();
-      } catch (e) { toast("Network error", "bad"); }
-    }
-
-    async function setMaintenance(enabled) {
-      try {
-        const res = await fetch(`/api/admin/maintenance`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({ enabled })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) return toast(data.error || "Maintenance toggle failed", "bad");
-        toast(`Maintenance ${enabled ? "enabled" : "disabled"}`, enabled ? "warn" : "ok");
-        await checkMaintenance();
-        await adminTab("maintenance");
-      } catch (e) { toast("Network error", "bad"); }
-    }
-
-    // ---------- Safety modal ----------
-    function closeSafetyDetails() {
-      safetyTargetPostId = null;
-      safetyTargetIp = null;
-      toggleModal("safetyModal", false);
-    }
-
-    async function openPostSafety(postId) {
-      if (!isAdmin || !adminToken) return toast("Admin only", "bad");
-      document.getElementById("safetyTitle").textContent = "Post Safety Details";
-      safetyTargetPostId = postId;
-      safetyTargetIp = null;
-
-      toggleModal("safetyModal", true);
-      const body = document.getElementById("safetyBody");
-      body.innerHTML = skeleton();
-
-      try {
-        const res = await fetch(`/api/admin/posts/${postId}/details`, { headers: authHeaders() });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) { toast(data.error || "Failed", "bad"); closeSafetyDetails(); return; }
-        safetyTargetIp = data.ip || null;
-
-        body.innerHTML = safetyHtml(data);
-        document.getElementById("safetyDeleteBtn").onclick = () => adminDeletePost(safetyTargetPostId);
-        document.getElementById("safetyBanBtn").onclick = () => safetyBanIp();
-        lucide.createIcons();
-      } catch (e) {
-        toast("Network error", "bad");
-        closeSafetyDetails();
-      }
-    }
-
-    async function openCommentSafety(postId, commentId) {
-      if (!isAdmin || !adminToken) return toast("Admin only", "bad");
-      document.getElementById("safetyTitle").textContent = "Comment Safety Details";
-      safetyTargetPostId = postId;
-      safetyTargetIp = null;
-
-      toggleModal("safetyModal", true);
-      const body = document.getElementById("safetyBody");
-      body.innerHTML = skeleton();
-
-      try {
-        const res = await fetch(`/api/admin/posts/${postId}/comments/${commentId}/details`, { headers: authHeaders() });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) { toast(data.error || "Failed", "bad"); closeSafetyDetails(); return; }
-        safetyTargetIp = data.ip || null;
-
-        body.innerHTML = safetyHtml(data);
-        document.getElementById("safetyDeleteBtn").onclick = () => adminDeletePost(safetyTargetPostId);
-        document.getElementById("safetyBanBtn").onclick = () => safetyBanIp();
-        lucide.createIcons();
-      } catch (e) {
-        toast("Network error", "bad");
-        closeSafetyDetails();
-      }
-    }
-
-    function safetyHtml(data) {
-      const geo = data.geo || {};
-      return `
-        <div class="space-y-3">
-          <div class="panel rounded-2xl p-4">
-            <div class="text-xs text-zinc-500">IP</div>
-            <div class="mt-1 font-mono text-sm text-zinc-200 break-all">${escapeHtml(data.ip || "unknown")}</div>
-          </div>
-
-          <div class="grid sm:grid-cols-2 gap-3">
-            <div class="panel rounded-2xl p-4">
-              <div class="text-xs text-zinc-500">Device</div>
-              <div class="mt-1 text-sm text-zinc-200">
-                ${escapeHtml(data.device?.type || "unknown")}
-                ${(data.device?.vendor || data.device?.model) ? ` • ${escapeHtml((data.device?.vendor||"") + " " + (data.device?.model||""))}` : ""}
-              </div>
-            </div>
-
-            <div class="panel rounded-2xl p-4">
-              <div class="text-xs text-zinc-500">Browser</div>
-              <div class="mt-1 text-sm text-zinc-200">
-                ${escapeHtml(data.browser?.name || "unknown")}
-                ${data.browser?.version ? ` • ${escapeHtml(data.browser.version)}` : ""}
-              </div>
-            </div>
-
-            <div class="panel rounded-2xl p-4">
-              <div class="text-xs text-zinc-500">OS</div>
-              <div class="mt-1 text-sm text-zinc-200">
-                ${escapeHtml(data.os?.name || "unknown")}
-                ${data.os?.version ? ` • ${escapeHtml(data.os.version)}` : ""}
-              </div>
-            </div>
-
-            <div class="panel rounded-2xl p-4">
-              <div class="text-xs text-zinc-500">Language</div>
-              <div class="mt-1 text-sm text-zinc-200">
-                ${escapeHtml(data.network?.acceptLanguage || "unknown")}
-              </div>
-            </div>
-          </div>
-
-          <div class="panel rounded-2xl p-4">
-            <div class="text-xs text-zinc-500">Location / ISP (optional)</div>
-            <div class="mt-2 text-sm text-zinc-200">
-              City: <span class="text-zinc-300">${escapeHtml(geo.city || "not available")}</span><br/>
-              Region: <span class="text-zinc-300">${escapeHtml(geo.region || "not available")}</span><br/>
-              Country: <span class="text-zinc-300">${escapeHtml(geo.country || "not available")}</span><br/>
-              ISP/Org: <span class="text-zinc-300">${escapeHtml(geo.ispOrg || "not available")}</span>
-            </div>
-            <div class="mt-2 text-xs text-zinc-500">
-              Tip: set <span class="font-mono">IPINFO_TOKEN</span> secret to enable city/ISP lookup.
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    async function safetyBanIp() {
-      if (!safetyTargetIp) return toast("No IP available", "warn");
-      if (!confirm(`Ban this IP?\n\n${safetyTargetIp}`)) return;
-      await adminBanIp(safetyTargetIp);
-    }
-
-    // ---------- Init ----------
-    (async function init() {
-      setAdminUI(false);
-      await verifyAdminToken();
-      await checkMaintenance();
-      await loadPosts();
-      // ensure preview UI is clean on load
-      renderFilePreview();
-    })();
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDjzZeVsnzCWxRLMNIo0T5fAw_DLR6Yqzw",
+      authDomain: "site1-c9ea9.firebaseapp.com",
+      projectId: "site1-c9ea9",
+      storageBucket: "site1-c9ea9.firebasestorage.app",
+      messagingSenderId: "463826948713",
+      appId: "1:463826948713:web:60c7452cdee8b3c46048f8"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const firebaseStorage = firebase.storage();
   </script>
-</body>
+  
+  <!-- Maintenance Screen -->  
+  <div id="maintenanceScreen" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4">  
+    <div class="absolute inset-0 bg-black/80"></div>  
+    <div class="relative panel rounded-[28px] max-w-xl w-full p-7 text-center fade-up">  
+      <div class="w-14 h-14 mx-auto rounded-3xl bg-white/5 ring-soft flex items-center justify-center">  
+        <i data-lucide="wrench" class="w-7 h-7 text-amber-300"></i>  
+      </div>  
+      <h2 class="mt-4 text-2xl font-extrabold">Site under maintenance</h2>  
+      <p class="mt-2 text-sm text-zinc-500">  
+        Posting, commenting, likes, and reporting are disabled for normal users.  
+      </p>  
+      <button onclick="openAdminBypass()" class="mt-6 btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 w-full">  
+        <i data-lucide="shield-check" class="w-5 h-5"></i>  
+        No, I'm admin  
+      </button>  
+    </div>  
+  </div>  
+  
+  <!-- Top Nav -->  
+  <nav class="glass fixed top-0 w-full z-40">  
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">  
+      <div class="flex items-center gap-3 min-w-0">  
+        <div class="w-10 h-10 rounded-2xl bg-emerald-500/15 ring-soft flex items-center justify-center shrink-0">  
+          <i data-lucide="ghost" class="w-5 h-5 text-emerald-400"></i>  
+        </div>  
+        <div class="leading-tight min-w-0">  
+          <div class="flex items-center gap-2 min-w-0">  
+            <h1 class="font-extrabold tracking-tight text-[15px] sm:text-base truncate">  
+              Bitchless<span class="text-emerald-400">Files</span>  
+            </h1>  
+            <span id="adminBadge" class="hidden text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 ring-soft shrink-0">  
+              ADMIN  
+            </span>  
+          </div>  
+          <p class="text-[12px] text-zinc-500 truncate">Anonymous board • files + media</p>  
+        </div>  
+      </div>  
+  
+      <div class="flex items-center gap-2 shrink-0">  
+        <button id="newPostBtn" onclick="toggleModal('uploadModal', true)" class="btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20">  
+          <i data-lucide="plus" class="w-5 h-5"></i>  
+          <span class="hidden sm:inline">New Post</span>  
+        </button>  
+  
+        <button onclick="toggleDrawer(true)" class="btn bg-white/5 hover:bg-white/10 text-zinc-200 ring-soft">  
+          <i data-lucide="menu" class="w-5 h-5"></i>  
+          <span class="hidden sm:inline">Menu</span>  
+        </button>  
+      </div>  
+    </div>  
+  </nav>  
+  
+  <!-- Drawer -->  
+  <div id="menuDrawer" class="fixed inset-0 z-50 pointer-events-none">  
+    <div class="absolute inset-0 bg-black/50 transition-opacity opacity-0 pointer-events-none" id="drawerBackdrop" onclick="toggleDrawer(false)"></div>  
+  
+    <div class="absolute right-0 top-0 h-full w-[320px] drawer pointer-events-auto p-5 flex flex-col panel" id="drawerPanel">  
+      <div class="flex justify-between items-center mb-5">  
+        <div class="flex items-center gap-2">  
+          <div class="w-9 h-9 rounded-xl bg-white/5 ring-soft flex items-center justify-center">  
+            <i data-lucide="sparkles" class="w-5 h-5 text-zinc-300"></i>  
+          </div>  
+          <h2 class="font-extrabold text-lg">Menu</h2>  
+        </div>  
+        <button onclick="toggleDrawer(false)" class="p-2 hover:bg-white/5 rounded-xl ring-soft">  
+          <i data-lucide="x" class="text-zinc-300"></i>  
+        </button>  
+      </div>  
+  
+      <div class="space-y-2">  
+        <a href="#" class="block p-3 rounded-2xl hover:bg-white/5 text-zinc-200 ring-soft flex items-center gap-3">  
+          <i data-lucide="home" class="w-5 h-5 text-zinc-300"></i>  
+          <div>  
+            <div class="font-semibold">Home</div>  
+            <div class="text-xs text-zinc-500">Feed</div>  
+          </div>  
+        </a>  
+  
+        <button onclick="toggleModal('loginModal', true)" class="w-full text-left p-3 rounded-2xl hover:bg-white/5 text-zinc-200 ring-soft flex items-center gap-3">  
+          <i data-lucide="shield" class="w-5 h-5 text-emerald-300"></i>  
+          <div>  
+            <div class="font-semibold">Login as Admin</div>  
+            <div class="text-xs text-zinc-500">Enables admin panel</div>  
+          </div>  
+        </button>  
+  
+        <button id="adminPanelBtn" onclick="openAdminPanel()" class="hidden w-full text-left p-3 rounded-2xl hover:bg-white/5 text-zinc-200 ring-soft flex items-center gap-3">  
+          <i data-lucide="layout-dashboard" class="w-5 h-5 text-emerald-300"></i>  
+          <div>  
+            <div class="font-semibold">Admin Panel</div>  
+            <div class="text-xs text-zinc-500">Posts • Reports • Bans • Maintenance</div>  
+          </div>  
+        </button>  
+  
+        <button id="logoutBtn" onclick="logoutAdmin()" class="hidden w-full text-left p-3 rounded-2xl hover:bg-white/5 text-zinc-200 ring-soft flex items-center gap-3">  
+          <i data-lucide="log-out" class="w-5 h-5 text-zinc-300"></i>  
+          <div>  
+            <div class="font-semibold">Logout</div>  
+            <div class="text-xs text-zinc-500">Disable admin mode</div>  
+          </div>  
+        </button>  
+  
+        <div class="mt-4 p-3 rounded-2xl bg-white/5 ring-soft">  
+          <div class="text-xs text-zinc-400">  
+            Note: This is temporary hosting; data resets when workflow stops.  
+          </div>  
+        </div>  
+      </div>  
+  
+      <div class="mt-auto pt-5 text-xs text-zinc-600">  
+        Bitchless Files V3  
+      </div>  
+    </div>  
+  </div>  
+  
+  <!-- Main -->  
+  <main class="flex-1 w-full max-w-4xl mx-auto pt-24 px-4 pb-20">  
+    <div class="grid grid-cols-1 gap-4">  
+  
+      <!-- Search -->  
+      <div class="panel rounded-3xl p-4">  
+        <div class="flex items-center gap-3">  
+          <div class="w-10 h-10 rounded-2xl bg-white/5 ring-soft flex items-center justify-center shrink-0">  
+            <i data-lucide="search" class="w-5 h-5 text-zinc-300"></i>  
+          </div>  
+          <div class="flex-1 min-w-0">  
+            <div class="text-xs text-zinc-500 font-semibold">Search</div>  
+            <input type="text" id="searchInput" placeholder="Search titles or content..."  
+              class="w-full mt-1 bg-transparent outline-none text-sm text-zinc-100 placeholder:text-zinc-600"  
+            />  
+          </div>  
+          <button onclick="loadPosts()" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 shrink-0">  
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>  
+            <span class="hidden sm:inline">Refresh</span>  
+          </button>  
+        </div>  
+      </div>  
+  
+      <!-- Feed -->  
+      <div id="feed" class="space-y-4"></div>  
+  
+      <div id="emptyState" class="hidden panel rounded-3xl p-8 text-center fade-up">  
+        <div class="w-14 h-14 mx-auto rounded-3xl bg-white/5 ring-soft flex items-center justify-center">  
+          <i data-lucide="ghost" class="w-7 h-7 text-emerald-300"></i>  
+        </div>  
+        <h3 class="mt-4 font-extrabold text-lg">No posts yet</h3>  
+        <p class="text-sm text-zinc-500 mt-1">Be the first to drop something.</p>  
+        <button onclick="toggleModal('uploadModal', true)" class="mt-5 btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20">  
+          <i data-lucide="plus" class="w-5 h-5"></i>  
+          Create Post  
+        </button>  
+      </div>  
+    </div>  
+  </main>  
+  
+  <!-- Upload Modal -->  
+  <div id="uploadModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">  
+    <div class="absolute inset-0 modal-bg" onclick="toggleModal('uploadModal', false)"></div>  
+  
+    <div class="relative w-full max-w-xl panel rounded-[28px] p-5 sm:p-6 shadow-2xl fade-up modal-panel-scroll">  
+      <div class="flex items-start justify-between gap-4">  
+        <div>  
+          <h2 class="text-xl font-extrabold">Create Post</h2>  
+          <p class="text-sm text-zinc-500 mt-1">Anonymous. Upload multiple files (images/video/audio/files).</p>  
+        </div>  
+        <button onclick="toggleModal('uploadModal', false)" class="p-2 hover:bg-white/5 rounded-xl ring-soft">  
+          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>  
+        </button>  
+      </div>  
+  
+      <form id="uploadForm" class="space-y-4 mt-5">  
+        <div class="grid sm:grid-cols-2 gap-3">  
+          <div class="sm:col-span-2">  
+            <label class="text-xs font-semibold text-zinc-400">Title</label>  
+            <input type="text" id="postTitle" placeholder="Subject / Title"  
+              class="w-full mt-1 bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70"  
+            >  
+          </div>  
+  
+          <div class="sm:col-span-2">  
+            <label class="text-xs font-semibold text-zinc-400">Text</label>  
+            <textarea id="postText" placeholder="What's on your mind?"  
+              class="w-full mt-1 bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70 resize-none h-28"  
+            ></textarea>  
+          </div>  
+  
+          <div class="sm:col-span-2">  
+            <label class="text-xs font-semibold text-zinc-400">Attachments (optional)</label>  
+            <div class="flex flex-wrap gap-2 items-center">  
+              <label class="inline-flex items-center gap-2 btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 cursor-pointer">  
+                <input type="file" id="postFiles" class="hidden" multiple  
+                  accept="image/*,video/*,audio/*,.pdf,.zip,.rar,.7z,.txt,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.apk"  
+                >  
+                <i data-lucide="paperclip" class="w-4 h-4"></i>  
+                Add files  
+              </label>  
+  
+              <button type="button" onclick="clearFiles()" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200">  
+                <i data-lucide="trash-2" class="w-4 h-4"></i>  
+                Clear  
+              </button>  
+  
+              <div id="fileCount" class="text-xs text-zinc-500"></div>  
+            </div>  
+  
+            <!-- ✅ NEW: WhatsApp-style compact preview row (first 3 + “+X more”) -->  
+            <div id="previewWrap" class="hidden mt-3">  
+              <div id="previewRow" class="preview-row"></div>  
+            </div>  
+  
+            <!-- Existing list kept (now used as expanded manager view) -->  
+            <div id="previewList" class="hidden mt-3 space-y-2 preview-scroll"></div>  
+          </div>  
+  
+          <div class="sm:col-span-2 hidden" id="progressContainer">  
+            <div class="text-xs text-zinc-500 mb-2">Uploading…</div>  
+            <div class="w-full bg-white/10 rounded-full h-2 overflow-hidden">  
+              <div id="progressBar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>  
+            </div>  
+          </div>  
+  
+          <!-- ✅ FIX: on mobile button is FULL WIDTH (no horizontal scroll needed) -->  
+          <!-- ✅ ALSO: sticky footer so button stays visible even if you scroll inside modal -->  
+          <div class="sm:col-span-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 sticky-footer">  
+            <div class="text-xs text-zinc-500">Profanity filter enabled</div>  
+            <button type="submit" class="btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 w-full sm:w-auto">  
+              <i data-lucide="send" class="w-4 h-4"></i>  
+              Post  
+            </button>  
+          </div>  
+        </div>  
+      </form>  
+    </div>  
+  </div>  
+  
+  <!-- Login Modal -->  
+  <div id="loginModal" class="fixed inset-0 z-[95] hidden flex items-center justify-center p-4">  
+    <div class="absolute inset-0 modal-bg" onclick="closeLoginModal()"></div>  
+  
+    <div class="relative w-full max-w-sm panel rounded-[28px] p-6 shadow-2xl fade-up">  
+      <div class="flex items-start justify-between gap-4">  
+        <div>  
+          <h2 class="text-xl font-extrabold">Admin Login</h2>  
+          <p class="text-sm text-zinc-500 mt-1">Enables admin panel + admin access</p>  
+        </div>  
+        <button onclick="closeLoginModal()" class="p-2 hover:bg-white/5 rounded-xl ring-soft">  
+          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>  
+        </button>  
+      </div>  
+  
+      <div class="mt-5 space-y-3">  
+        <input type="password" id="adminPass" placeholder="Enter Secret Password"  
+          class="w-full bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70 text-white"  
+        >  
+        <button onclick="loginAdmin()" class="w-full btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20">  
+          <i data-lucide="shield-check" class="w-4 h-4"></i>  
+          Login  
+        </button>  
+      </div>  
+    </div>  
+  </div>  
+  
+  <!-- Post Detail Modal -->  
+  <div id="postModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">  
+    <div class="absolute inset-0 modal-bg" onclick="closePostModal()"></div>  
+    <div class="relative w-full max-w-3xl panel rounded-[28px] p-4 sm:p-6 shadow-2xl fade-up modal-panel-scroll">  
+      <div class="flex items-start justify-between gap-4">  
+        <div class="min-w-0">  
+          <h2 id="postModalTitle" class="text-xl font-extrabold truncate">Post</h2>  
+          <p id="postModalMeta" class="text-sm text-zinc-500 mt-1 truncate">Anonymous</p>  
+        </div>  
+        <button onclick="closePostModal()" class="p-2 hover:bg-white/5 rounded-xl ring-soft shrink-0">  
+          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>  
+        </button>  
+      </div>  
+  
+      <div id="postModalBody" class="mt-4"></div>  
+  
+      <div class="mt-5">  
+        <div class="text-sm font-extrabold">Comments</div>  
+        <div id="commentsList" class="mt-3 space-y-3"></div>  
+  
+        <div class="mt-4 flex flex-col sm:flex-row gap-2">  
+          <input id="commentInput" type="text" placeholder="Write an anonymous comment..."  
+            class="flex-1 bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70"  
+          >  
+          <button onclick="addComment()" class="btn bg-emerald-600 hover:bg-emerald-500 text-white sm:w-auto w-full">  
+            <i data-lucide="message-circle" class="w-4 h-4"></i>  
+            Send  
+          </button>  
+        </div>  
+      </div>  
+    </div>  
+  </div>  
+  
+  <!-- Report Modal -->  
+  <div id="reportModal" class="fixed inset-0 z-[65] hidden flex items-center justify-center p-4">  
+    <div class="absolute inset-0 modal-bg" onclick="toggleModal('reportModal', false)"></div>  
+    <div class="relative w-full max-w-lg panel rounded-[28px] p-6 shadow-2xl fade-up modal-panel-scroll">  
+      <div class="flex items-start justify-between gap-4">  
+        <div>  
+          <h2 class="text-xl font-extrabold">Report Post</h2>  
+          <p class="text-sm text-zinc-500 mt-1">Choose a reason</p>  
+        </div>  
+        <button onclick="toggleModal('reportModal', false)" class="p-2 hover:bg-white/5 rounded-xl ring-soft">  
+          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>  
+        </button>  
+      </div>  
+  
+      <div class="mt-4 space-y-2">  
+        <select id="reportReason"  
+          class="w-full bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70"  
+          onchange="handleReportReasonChange()"  
+        >  
+          <option>Spam</option>  
+          <option>Hate or abuse</option>  
+          <option>Illegal content</option>  
+          <option>Harassment</option>  
+          <option>Misinformation</option>  
+          <option>Something else</option>  
+        </select>  
+  
+        <textarea id="reportMessage" class="hidden w-full bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70 h-24 resize-none"  
+          placeholder="Explain (required for Something else)"></textarea>  
+  
+        <button onclick="submitReport()" class="w-full btn bg-amber-600 hover:bg-amber-500 text-white">  
+          <i data-lucide="flag" class="w-4 h-4"></i>  
+          Submit report  
+        </button>  
+      </div>  
+    </div>  
+  </div>  
+  
+  <!-- Admin Panel Modal -->  
+  <div id="adminModal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-4">  
+    <div class="absolute inset-0 modal-bg" onclick="closeAdminPanel()"></div>  
+    <div class="relative w-full max-w-6xl panel rounded-[28px] p-4 sm:p-6 shadow-2xl fade-up overflow-hidden">  
+      <div class="flex items-start justify-between gap-4">  
+        <div>  
+          <h2 class="text-2xl font-extrabold">Admin Panel</h2>  
+          <p id="adminMeta" class="text-sm text-zinc-500 mt-1">Loading…</p>  
+        </div>  
+        <button onclick="closeAdminPanel()" class="p-2 hover:bg-white/5 rounded-xl ring-soft">  
+          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>  
+        </button>  
+      </div>  
+  
+      <div class="mt-4 flex flex-wrap gap-2">  
+        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminTab('posts')">  
+          <i data-lucide="files" class="w-4 h-4"></i> Posts  
+        </button>  
+        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminTab('reports')">  
+          <i data-lucide="flag" class="w-4 h-4"></i> Reports  
+        </button>  
+        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminTab('bans')">  
+          <i data-lucide="ban" class="w-4 h-4"></i> Bans  
+        </button>  
+        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminTab('maintenance')">  
+          <i data-lucide="wrench" class="w-4 h-4"></i> Maintenance  
+        </button>  
+      </div>  
+  
+      <div id="adminContent" class="mt-4 max-h-[70vh] overflow-auto pr-1"></div>  
+    </div>  
+  </div>  
+  
+  <!-- Safety Details Modal -->  
+  <div id="safetyModal" class="fixed inset-0 z-[75] hidden flex items-center justify-center p-4">  
+    <div class="absolute inset-0 modal-bg" onclick="closeSafetyDetails()"></div>  
+    <div class="relative w-full max-w-2xl panel rounded-[28px] p-6 shadow-2xl fade-up modal-panel-scroll">  
+      <div class="flex items-start justify-between gap-4">  
+        <div class="min-w-0">  
+          <h2 id="safetyTitle" class="text-xl font-extrabold truncate">Safety Details</h2>  
+          <p class="text-sm text-zinc-500 mt-1">Admin-only</p>  
+        </div>  
+        <button onclick="closeSafetyDetails()" class="p-2 hover:bg-white/5 rounded-xl ring-soft shrink-0">  
+          <i data-lucide="x" class="w-5 h-5 text-zinc-300"></i>  
+        </button>  
+      </div>  
+  
+      <div id="safetyBody" class="mt-5"></div>  
+  
+      <div class="mt-5 flex flex-wrap gap-2 justify-end">  
+        <button id="safetyDeleteBtn" class="btn bg-red-500/12 hover:bg-red-500/18 text-red-200 ring-soft">  
+          <i data-lucide="trash-2" class="w-4 h-4"></i> Delete post  
+        </button>  
+        <button id="safetyBanBtn" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200">  
+          <i data-lucide="ban" class="w-4 h-4"></i> Ban IP  
+        </button>  
+      </div>  
+    </div>  
+  </div>  
+  
+  <!-- ✅ Media Viewer (tap image/video → fullscreen, swipe next/prev, zoom images) -->  
+  <div id="mediaViewer" class="fixed inset-0 z-[98] hidden">  
+    <div class="absolute inset-0 bg-black/90" onclick="closeMediaViewer()"></div>  
+  
+    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">  
+      <div class="viewer-toolbar rounded-2xl px-3 py-2 flex items-center gap-2">  
+        <!-- ✅ FIX: don't pass `event` (not available in some browsers) -->  
+        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="prevMedia()">  
+          <i data-lucide="chevron-left" class="w-5 h-5"></i>  
+        </button>  
+        <div class="text-xs text-zinc-300 viewer-counter px-2">  
+          <span id="viewerCounter">1 / 1</span>  
+        </div>  
+        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="nextMedia()">  
+          <i data-lucide="chevron-right" class="w-5 h-5"></i>  
+        </button>  
+      </div>  
+  
+      <div class="viewer-toolbar rounded-2xl px-3 py-2 flex items-center gap-2">  
+        <button id="zoomOutBtn" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="zoomOut()">  
+          <i data-lucide="zoom-out" class="w-5 h-5"></i>  
+        </button>  
+        <button id="zoomResetBtn" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="zoomReset()">  
+          <i data-lucide="maximize-2" class="w-5 h-5"></i>  
+        </button>  
+        <button id="zoomInBtn" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="zoomIn()">  
+          <i data-lucide="zoom-in" class="w-5 h-5"></i>  
+        </button>  
+  
+        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200 px-3 py-2" onclick="closeMediaViewer()">  
+          <i data-lucide="x" class="w-5 h-5"></i>  
+        </button>  
+      </div>  
+    </div>  
+  
+    <div id="viewerStage" class="viewer-stage absolute inset-0 pt-20 pb-6 px-3">  
+      <div id="viewerWrap" class="viewer-media-wrap"></div>  
+    </div>  
+  </div>  
+  
+  <!-- Toasts -->  
+  <div id="toasts" class="fixed bottom-4 right-4 z-[90] space-y-2"></div>  
+  
+  <script>  
+    lucide.createIcons();  
+  
+    // ---------- State ----------  
+    let allPosts = [];  
+    let isAdmin = false;  
+    let adminToken = localStorage.getItem("adminToken") || null;  
+  
+    let selectedPostId = null;  
+    let reportPostId = null;  
+    let lastMaintenance = false;  
+  
+    // safety modal state  
+    let safetyTargetPostId = null;  
+    let safetyTargetIp = null;  
+  
+    // upload state  
+    const postFilesInput = document.getElementById("postFiles");  
+    let selectedFiles = [];  
+  
+    // ✅ upload preview UI state (compact row + expand)  
+    let previewsExpanded = false;  
+  
+    // viewer state (current post attachments)  
+    let viewerItems = [];  
+    let viewerIndex = 0;  
+  
+    // viewer zoom/pan state (images)  
+    let viewerScale = 1;  
+    let viewerTx = 0;  
+    let viewerTy = 0;  
+    let viewerPointers = new Map(); // pointerId -> {x,y}  
+    let viewerStartScale = 1;  
+    let viewerStartTx = 0;  
+    let viewerStartTy = 0;  
+    let viewerStartDist = 0;  
+    let viewerIsPanning = false;  
+    let viewerLastPan = { x: 0, y: 0 };  
+    let viewerIsImage = false;  
+  
+    // swipe state for stage  
+    let stageSwipe = { active: false, x0: 0, y0: 0, moved: false };  
+  
+    // ---------- Helpers ----------  
+    function escapeHtml(str) {  
+      return String(str || "")  
+        .replaceAll("&", "&amp;")  
+        .replaceAll("<", "&lt;")  
+        .replaceAll(">", "&gt;")  
+        .replaceAll('"', "&quot;")  
+        .replaceAll("'", "&#039;");  
+    }  
+  
+    function formatBytes(bytes) {  
+      const b = Number(bytes || 0);  
+      if (!b) return "0 B";  
+      const units = ["B","KB","MB","GB"];  
+      let i = 0, v = b;  
+      while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }  
+      return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;  
+    }  
+  
+    function toast(message, type="ok") {  
+      const root = document.getElementById('toasts');  
+      const el = document.createElement('div');  
+      const icon = type === "ok" ? "check-circle-2" : (type === "warn" ? "alert-triangle" : "x-circle");  
+      const bg = type === "ok" ? "bg-emerald-500/12" : (type === "warn" ? "bg-amber-500/12" : "bg-red-500/12");  
+      const ring = type === "ok" ? "border-emerald-500/20" : (type === "warn" ? "border-amber-500/20" : "border-red-500/20");  
+      el.className = `toast panel ${bg} ${ring} border rounded-2xl px-4 py-3 flex items-start gap-3 shadow-xl`;  
+      el.innerHTML = `  
+        <div class="mt-0.5 w-9 h-9 rounded-2xl bg-white/5 ring-soft flex items-center justify-center">  
+          <i data-lucide="${icon}" class="w-5 h-5 text-zinc-200"></i>  
+        </div>  
+        <div class="text-sm text-zinc-200 leading-snug">${escapeHtml(message)}</div>  
+      `;  
+      root.appendChild(el);  
+      lucide.createIcons();  
+      setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateY(6px)"; }, 2600);  
+      setTimeout(() => { el.remove(); }, 3000);  
+    }  
+  
+    function toggleModal(id, show) {  
+      const el = document.getElementById(id);  
+      if (show) el.classList.remove('hidden');  
+      else el.classList.add('hidden');  
+    }  
+  
+    function closeLoginModal() {  
+      toggleModal("loginModal", false);  
+      if (lastMaintenance && !isAdmin) {  
+        document.getElementById("maintenanceScreen").classList.remove("hidden");  
+      }  
+    }  
+  
+    function toggleDrawer(open) {  
+      const drawer = document.getElementById('drawerPanel');  
+      const backdrop = document.getElementById('drawerBackdrop');  
+      const container = document.getElementById('menuDrawer');  
+  
+      if (open) {  
+        container.classList.remove('pointer-events-none');  
+        container.classList.add('pointer-events-auto');  
+        drawer.classList.add('open');  
+        backdrop.classList.remove('opacity-0', 'pointer-events-none');  
+        backdrop.classList.add('pointer-events-auto');  
+      } else {  
+        drawer.classList.remove('open');  
+        backdrop.classList.add('opacity-0', 'pointer-events-none');  
+        backdrop.classList.remove('pointer-events-auto');  
+        setTimeout(() => {  
+          container.classList.add('pointer-events-none');  
+          container.classList.remove('pointer-events-auto');  
+        }, 280);  
+      }  
+    }  
+  
+    function setAdminUI(on) {  
+      isAdmin = on;  
+      document.getElementById("adminBadge").classList.toggle("hidden", !on);  
+      document.getElementById("logoutBtn").classList.toggle("hidden", !on);  
+      document.getElementById("adminPanelBtn").classList.toggle("hidden", !on);  
+    }  
+  
+    function authHeaders(extra={}) {  
+      const h = { ...extra };  
+      if (adminToken) h["x-admin-token"] = adminToken;  
+      return h;  
+    }  
+  
+    function skeleton() {  
+      return `  
+        <div class="panel rounded-3xl p-5 animate-pulse">  
+          <div class="h-4 w-40 bg-white/10 rounded"></div>  
+          <div class="mt-3 h-3 w-full bg-white/10 rounded"></div>  
+          <div class="mt-2 h-3 w-5/6 bg-white/10 rounded"></div>  
+          <div class="mt-4 h-56 w-full bg-white/10 rounded-2xl"></div>  
+        </div>  
+      `;  
+    }  
+
+    // ✅ Firebase upload helpers (NEW)
+    function safeFilename(name) {
+      return String(name || "file")
+        .replace(/[^\w.\-]+/g, "_")
+        .slice(0, 120);
+    }
+
+    async function uploadFilesToFirebase(files, onProgress) {
+      const list = Array.isArray(files) ? files : [];
+      if (!list.length) return [];
+
+      if (!window.firebaseStorage) {
+        throw new Error("Firebase Storage not initialized");
+      }
+
+      const batchId = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
+      const totalBytes = list.reduce((s, f) => s + (Number(f?.size) || 0), 0) || 1;
+
+      // Track each file progress, then sum to overall
+      const perFile = new Array(list.length).fill(0);
+
+      function updateOverall() {
+        const done = perFile.reduce((a, b) => a + b, 0);
+        const pct = Math.max(0, Math.min(100, Math.round((done / totalBytes) * 100)));
+        if (typeof onProgress === "function") onProgress(pct);
+      }
+
+      const attachments = [];
+
+      for (let i = 0; i < list.length; i++) {
+        const f = list[i];
+        if (!(f instanceof File)) continue;
+
+        const mime = f.type || "application/octet-stream";
+        const kind = kindFromFile(f);
+
+        const filePath = `posts/${batchId}/${Date.now()}_${i}_${safeFilename(f.name)}`;
+        const ref = firebaseStorage.ref().child(filePath);
+
+        const task = ref.put(f, { contentType: mime });
+
+        await new Promise((resolve, reject) => {
+          task.on(
+            "state_changed",
+            (snap) => {
+              perFile[i] = snap.bytesTransferred || 0;
+              updateOverall();
+            },
+            (err) => reject(err),
+            () => resolve()
+          );
+        });
+
+        const url = await task.snapshot.ref.getDownloadURL();
+
+        attachments.push({
+          url,
+          kind,
+          name: f.name || "file",
+          mimetype: mime,
+          size: f.size || 0
+        });
+      }
+
+      // Ensure UI hits 100%
+      if (typeof onProgress === "function") onProgress(100);
+
+      return attachments;
+    }
+  
+    // ---------- Maintenance ----------  
+    async function checkMaintenance() {  
+      try {  
+        const res = await fetch("/api/status");  
+        const data = await res.json();  
+        const maintenance = !!data.maintenance;  
+        lastMaintenance = maintenance;  
+  
+        if (maintenance && !isAdmin) {  
+          document.getElementById("maintenanceScreen").classList.remove("hidden");  
+          document.getElementById("newPostBtn").classList.add("opacity-50");  
+        } else {  
+          document.getElementById("maintenanceScreen").classList.add("hidden");  
+          document.getElementById("newPostBtn").classList.remove("opacity-50");  
+        }  
+      } catch (e) {}  
+    }  
+  
+    function openAdminBypass() {  
+      document.getElementById("maintenanceScreen").classList.add("hidden");  
+      toggleModal("loginModal", true);  
+      setTimeout(() => {  
+        const input = document.getElementById("adminPass");  
+        if (input) input.focus();  
+      }, 50);  
+    }  
+  
+    // ---------- Admin auth verification ----------  
+    async function verifyAdminToken() {  
+      if (!adminToken) { setAdminUI(false); return; }  
+      try {  
+        const res = await fetch("/api/admin/status", { headers: authHeaders() });  
+        if (res.ok) setAdminUI(true);  
+        else {  
+          adminToken = null;  
+          localStorage.removeItem("adminToken");  
+          setAdminUI(false);  
+        }  
+      } catch (e) { setAdminUI(false); }  
+    }  
+  
+    // ---------- Login / logout ----------  
+    async function loginAdmin() {  
+      const pass = document.getElementById('adminPass').value;  
+      try {  
+        const res = await fetch('/api/login', {  
+          method: 'POST',  
+          headers: { 'Content-Type': 'application/json' },  
+          body: JSON.stringify({ password: pass })  
+        });  
+        const data = await res.json().catch(() => ({}));  
+        if (data.success && data.token) {  
+          adminToken = data.token;  
+          localStorage.setItem("adminToken", adminToken);  
+          setAdminUI(true);  
+          toast("Admin mode enabled", "ok");  
+          toggleModal('loginModal', false);  
+          toggleDrawer(false);  
+          await checkMaintenance();  
+          await loadPosts();  
+        } else {  
+          toast("Wrong password", "bad");  
+        }  
+      } catch (e) {  
+        toast("Network error", "bad");  
+      }  
+    }  
+  
+    function logoutAdmin() {  
+      adminToken = null;  
+      localStorage.removeItem("adminToken");  
+      setAdminUI(false);  
+      toast("Logged out", "warn");  
+      toggleDrawer(false);  
+      checkMaintenance();  
+      loadPosts();  
+    }  
+  
+    // ---------- Upload: multi-file preview ----------  
+    postFilesInput.addEventListener("change", () => {  
+      selectedFiles = Array.from(postFilesInput.files || []);  
+      previewsExpanded = false;  
+      renderFilePreview();  
+    });  
+  
+    function clearFiles() {  
+      postFilesInput.value = "";  
+      selectedFiles = [];  
+      previewsExpanded = false;  
+      renderFilePreview();  
+    }  
+  
+    function kindFromFile(file) {  
+      const t = (file.type || "").toLowerCase();  
+      if (t.startsWith("image/")) return "image";  
+      if (t.startsWith("video/")) return "video";  
+      if (t.startsWith("audio/")) return "audio";  
+      return "file";  
+    }  
+  
+    // ✅ toggles expanded manager list  
+    function toggleExpandedPreviews() {  
+      previewsExpanded = !previewsExpanded;  
+      renderFilePreview();  
+    }  
+  
+    // ✅ updated preview renderer:  
+    // - show 3 thumbs + "+X more" (always when files > 3)  
+    // - clicking "+X more" expands list  
+    // - list has remove buttons  
+    function renderFilePreview() {  
+      const wrap = document.getElementById("previewWrap");  
+      const row = document.getElementById("previewRow");  
+      const list = document.getElementById("previewList");  
+      const count = document.getElementById("fileCount");  
+  
+      count.textContent = selectedFiles.length ? `${selectedFiles.length} file(s) selected` : "";  
+  
+      if (!selectedFiles.length) {  
+        wrap.classList.add("hidden");  
+        row.innerHTML = "";  
+        list.classList.add("hidden");  
+        list.innerHTML = "";  
+        return;  
+      }  
+  
+      wrap.classList.remove("hidden");  
+  
+      const maxThumbs = 3;  
+      const extra = Math.max(0, selectedFiles.length - maxThumbs);  
+  
+      const compactFiles = selectedFiles.slice(0, maxThumbs);  
+  
+      row.innerHTML = compactFiles.map((f, idx) => {  
+        const kind = kindFromFile(f);  
+        const actualIndex = idx;  
+        let inner = "";  
+  
+        if (kind === "image") {  
+          const url = URL.createObjectURL(f);  
+          inner = `<img src="${url}" alt="">`;  
+        } else if (kind === "video") {  
+          inner = `<div class="thumb-icon"><i data-lucide="video" class="w-6 h-6 text-zinc-200"></i></div>`;  
+        } else if (kind === "audio") {  
+          inner = `<div class="thumb-icon"><i data-lucide="music" class="w-6 h-6 text-zinc-200"></i></div>`;  
+        } else {  
+          inner = `<div class="thumb-icon"><i data-lucide="file" class="w-6 h-6 text-zinc-200"></i></div>`;  
+        }  
+  
+        return `  
+          <div class="thumb">  
+            ${inner}  
+            <button type="button" class="remove-x" onclick="removeSelectedFile(${actualIndex})" aria-label="Remove">  
+              <i data-lucide="x" class="w-4 h-4 text-zinc-100"></i>  
+            </button>  
+          </div>  
+        `;  
+      }).join("");  
+  
+      /* ✅ FIX: always show +X more when there are more than 3 files */  
+      if (extra > 0) {  
+        row.innerHTML += `  
+          <div class="more-pill" onclick="toggleExpandedPreviews()">  
+            <i data-lucide="${previewsExpanded ? "chevrons-up" : "layers"}" class="w-4 h-4 text-zinc-200"></i>  
+            +${extra} more  
+          </div>  
+        `;  
+      } else {  
+        /* Keep a small manage pill when <= 3 so user can still open list if desired */  
+        row.innerHTML += `  
+          <div class="more-pill" onclick="toggleExpandedPreviews()">  
+            <i data-lucide="${previewsExpanded ? "chevrons-up" : "sliders-horizontal"}" class="w-4 h-4 text-zinc-200"></i>  
+            ${previewsExpanded ? "Hide list" : "Manage"}  
+          </div>  
+        `;  
+      }  
+  
+      // Expanded manager list (uses existing previewList)  
+      if (previewsExpanded) {  
+        list.classList.remove("hidden");  
+        list.innerHTML = selectedFiles.map((f, idx) => {  
+          const kind = kindFromFile(f);  
+          const size = formatBytes(f.size);  
+  
+          const showName = (kind === "file");  
+          const name = escapeHtml(f.name);  
+  
+          if (kind === "image") {  
+            const url = URL.createObjectURL(f);  
+            return `  
+              <div class="panel rounded-2xl p-3 flex items-center gap-3">  
+                <img src="${url}" class="w-12 h-12 rounded-xl object-cover border border-white/10 bg-black/30" />  
+                <div class="min-w-0 flex-1">  
+                  <div class="text-sm font-semibold text-zinc-200">IMAGE</div>  
+                  <div class="text-xs text-zinc-500">${size}</div>  
+                </div>  
+                <button type="button" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="removeSelectedFile(${idx})">  
+                  <i data-lucide="x" class="w-4 h-4"></i>  
+                </button>  
+              </div>  
+            `;  
+          }  
+  
+          const icon = kind === "video" ? "video" : (kind === "audio" ? "music" : "file");  
+          const label = kind === "video" ? "VIDEO" : (kind === "audio" ? "AUDIO" : "FILE");  
+  
+          return `  
+            <div class="panel rounded-2xl p-3 flex items-center gap-3">  
+              <div class="w-12 h-12 rounded-xl bg-white/5 ring-soft flex items-center justify-center">  
+                <i data-lucide="${icon}" class="w-5 h-5 text-zinc-200"></i>  
+              </div>  
+              <div class="min-w-0 flex-1">  
+                ${showName ? `<div class="text-sm font-semibold truncate">${name}</div>` : `<div class="text-sm font-semibold text-zinc-200">${label}</div>`}  
+                <div class="text-xs text-zinc-500">${size}</div>  
+              </div>  
+              <button type="button" class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="removeSelectedFile(${idx})">  
+                <i data-lucide="x" class="w-4 h-4"></i>  
+              </button>  
+            </div>  
+          `;  
+        }).join("");  
+      } else {  
+        list.classList.add("hidden");  
+        list.innerHTML = "";  
+      }  
+  
+      lucide.createIcons();  
+    }  
+  
+    function removeSelectedFile(index) {  
+      selectedFiles.splice(index, 1);  
+      if (!selectedFiles.length) previewsExpanded = false;  
+      renderFilePreview();  
+    }  
+  
+    // ---------- Upload submit ----------  
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {  
+      e.preventDefault();  
+  
+      const btn = e.target.querySelector('button[type="submit"]');  
+      const bar = document.getElementById('progressBar');  
+      const barContainer = document.getElementById('progressContainer');  
+  
+      btn.disabled = true;  
+      barContainer.classList.remove('hidden');  
+      bar.style.width = '0%';  
+
+      // ✅ We now upload to Firebase Storage first (instead of sending file bytes to KV)
+      const titleVal = document.getElementById('postTitle').value;
+      const textVal = document.getElementById('postText').value;
+
+      try {  
+        // Upload selected files to Firebase Storage (if any)
+        let attachments = [];
+        if (selectedFiles.length) {
+          toast("Uploading to Firebase…", "warn");
+          attachments = await uploadFilesToFirebase(selectedFiles, (pct) => {
+            bar.style.width = pct + '%';
+          });
+        } else {
+          bar.style.width = '15%';
+        }
+
+        // Now create post by sending JSON to backend
+        const res = await fetch('/api/upload', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({
+            title: titleVal,
+            text: textVal,
+            attachments
+          })
+        });  
+  
+        bar.style.width = '100%';  
+  
+        const data = await res.json().catch(() => ({}));  
+  
+        if (res.ok) {  
+          toast("Posted!", "ok");  
+          setTimeout(() => {  
+            toggleModal('uploadModal', false);  
+            document.getElementById('uploadForm').reset();  
+            clearFiles();  
+            barContainer.classList.add('hidden');  
+            bar.style.width = '0%';  
+            btn.disabled = false;  
+            loadPosts();  
+          }, 450);  
+        } else {  
+          toast(data.error || "Upload failed", "bad");  
+          btn.disabled = false;  
+          barContainer.classList.add('hidden');  
+          bar.style.width = '0%';  
+          await checkMaintenance();  
+        }  
+      } catch (err) {  
+        toast(String(err?.message || err || "Network error"), "bad");  
+        btn.disabled = false;  
+        barContainer.classList.add('hidden');  
+        bar.style.width = '0%';  
+      }  
+    });  
+  
+    // ---------- Search ----------  
+    document.getElementById('searchInput').addEventListener('input', (e) => {  
+      const q = e.target.value.toLowerCase();  
+      const filtered = allPosts.filter(p =>  
+        (p.title || '').toLowerCase().includes(q) ||  
+        (p.text || '').toLowerCase().includes(q)  
+      );  
+      renderPosts(filtered);  
+    });  
+  
+    // ---------- Load posts ----------  
+    async function loadPosts() {  
+      const feed = document.getElementById('feed');  
+      feed.innerHTML = skeleton();  
+  
+      try {  
+        const res = await fetch('/api/posts');  
+        allPosts = await res.json();  
+        renderPosts(allPosts);  
+        await checkMaintenance();  
+      } catch (e) {  
+        feed.innerHTML = "";  
+        toast("Could not load posts", "bad");  
+      }  
+    }  
+  
+    // ---------- Interactions ----------  
+    async function likePost(id) {  
+      try {  
+        const res = await fetch(`/api/posts/${id}/like`, { method: "POST", headers: authHeaders() });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Like failed", "bad");  
+        updateCounts(id, data.likes, data.dislikes);  
+      } catch (e) { toast("Network error", "bad"); }  
+    }  
+  
+    async function dislikePost(id) {  
+      try {  
+        const res = await fetch(`/api/posts/${id}/dislike`, { method: "POST", headers: authHeaders() });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Dislike failed", "bad");  
+        updateCounts(id, data.likes, data.dislikes);  
+      } catch (e) { toast("Network error", "bad"); }  
+    }  
+  
+    function updateCounts(id, likes, dislikes) {  
+      const el = document.querySelector(`[data-post="${id}"]`);  
+      if (!el) return;  
+      const l = el.querySelector(`[data-likecount="${id}"]`);  
+      const d = el.querySelector(`[data-dislikecount="${id}"]`);  
+      if (l) l.textContent = likes;  
+      if (d) d.textContent = dislikes;  
+      const p = allPosts.find(x => x.id === id);  
+      if (p) { p.likes = likes; p.dislikes = dislikes; }  
+    }  
+  
+    // ---------- Media rendering ----------  
+    function renderAttachments(attachments, mode="feed") {  
+      const at = Array.isArray(attachments) ? attachments : [];  
+      if (!at.length) return "";  
+  
+      const maxFeedItems = 3;  
+      const shown = (mode === "feed") ? at.slice(0, maxFeedItems) : at;  
+      const extra = (mode === "feed" && at.length > maxFeedItems) ? (at.length - maxFeedItems) : 0;  
+  
+      const items = shown.map((a, idx) => {  
+        const url = a.url;  
+        const name = escapeHtml(a.name || "file");  
+        const kind = a.kind || "file";  
+  
+        const click = (mode === "detail")  
+          ? `onclick="openMediaViewer(${idx})"`  
+          : "";  
+  
+        if (kind === "image") {  
+          return `  
+            <button type="button" class="media-card text-left" ${click} aria-label="Open image">  
+              <img src="${url}" class="w-full h-40 sm:h-44 object-cover" loading="lazy"/>  
+            </button>  
+          `;  
+        }  
+        if (kind === "video") {  
+          return `  
+            <button type="button" class="media-card p-2 text-left" ${click} aria-label="Open video">  
+              <div class="relative">  
+                <video class="w-full rounded-xl bg-black/40 pointer-events-none" muted playsinline preload="metadata">  
+                  <source src="${url}" type="${a.mimetype || 'video/mp4'}">  
+                </video>  
+                <div class="absolute inset-0 grid place-items-center">  
+                  <div class="w-12 h-12 rounded-2xl bg-black/55 ring-soft flex items-center justify-center">  
+                    <i data-lucide="play" class="w-6 h-6 text-zinc-100"></i>  
+                  </div>  
+                </div>  
+              </div>  
+              <div class="mt-2 text-xs text-zinc-500 truncate">${name}</div>  
+            </button>  
+          `;  
+        }  
+        if (kind === "audio") {  
+          return `  
+            <div class="media-card p-3">  
+              <div class="text-sm font-semibold truncate mb-2">${name}</div>  
+              <audio controls class="w-full">  
+                <source src="${url}" type="${a.mimetype || 'audio/mpeg'}">  
+              </audio>  
+            </div>  
+          `;  
+        }  
+  
+        return `  
+          <a class="media-card p-3 block hover:bg-white/5 transition" href="${url}" target="_blank" rel="noopener">  
+            <div class="flex items-center gap-2">  
+              <i data-lucide="file" class="w-4 h-4 text-zinc-300"></i>  
+              <div class="min-w-0">  
+                <div class="text-sm font-semibold truncate">${name}</div>  
+                <div class="text-xs text-zinc-500">Download</div>  
+              </div>  
+            </div>  
+          </a>  
+        `;  
+      }).join("");  
+  
+      const badge = extra ? `  
+        <div class="file-pill text-xs text-zinc-200 bg-white/5 ring-soft">  
+          <i data-lucide="layers" class="w-4 h-4"></i> +${extra} more  
+        </div>  
+      ` : "";  
+  
+      return `  
+        <div class="mt-4">  
+          <div class="media-grid">${items}</div>  
+          ${badge ? `<div class="mt-3">${badge}</div>` : ``}  
+        </div>  
+      `;  
+    }  
+
+    /* ----------------- EVERYTHING BELOW IS YOUR ORIGINAL CODE (unchanged) ----------------- */
+    /* (Your remaining functions: post modal, report, viewer, admin panel etc.) */
+    /* I did NOT remove anything; only changed upload handling above. */
+
+    // ---------- Post modal ----------  
+    async function openPostModal(id) {  
+      selectedPostId = id;  
+      toggleModal("postModal", true);  
+      document.getElementById("postModalBody").innerHTML = skeleton();  
+      document.getElementById("commentsList").innerHTML = "";  
+  
+      try {  
+        const res = await fetch(`/api/posts/${id}`);  
+        const post = await res.json();  
+  
+        if (!res.ok) {  
+          toast(post.error || "Failed to open post", "bad");  
+          closePostModal();  
+          return;  
+        }  
+  
+        document.getElementById("postModalTitle").textContent = post.title || "Untitled";  
+        document.getElementById("postModalMeta").textContent = `Anonymous • ${post.date || ""}`;  
+  
+        // ✅ set viewer items to THIS post attachments so viewer can swipe  
+        viewerItems = Array.isArray(post.attachments) ? post.attachments : [];  
+  
+        const adminSafetyBtn = (isAdmin && adminToken)  
+          ? `  
+            <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="openPostSafety(${post.id})">  
+              <i data-lucide="shield-alert" class="w-4 h-4"></i> Safety  
+            </button>  
+          `  
+          : "";  
+  
+        const mediaHtml = renderAttachments(post.attachments || [], "detail");  
+  
+        document.getElementById("postModalBody").innerHTML = `  
+          <div class="space-y-3">  
+            ${mediaHtml}  
+            <div class="text-sm text-zinc-200 whitespace-pre-wrap">${escapeHtml(post.text || "")}</div>  
+  
+            <div class="action-row pt-2">  
+              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="likePost(${post.id})">  
+                <i data-lucide="thumbs-up" class="w-4 h-4"></i> <span>${post.likes}</span>  
+              </button>  
+              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="dislikePost(${post.id})">  
+                <i data-lucide="thumbs-down" class="w-4 h-4"></i> <span>${post.dislikes}</span>  
+              </button>  
+              <button class="btn bg-amber-600/20 hover:bg-amber-600/30 text-amber-200 ring-soft" onclick="openReport(${post.id})">  
+                <i data-lucide="flag" class="w-4 h-4"></i> Report  
+              </button>  
+              ${adminSafetyBtn}  
+            </div>  
+          </div>  
+        `;  
+  
+        renderComments(post.comments || []);  
+        lucide.createIcons();  
+      } catch (e) {  
+        toast("Network error", "bad");  
+        closePostModal();  
+      }  
+    }  
+
+    function closePostModal() {  
+      selectedPostId = null;  
+      toggleModal("postModal", false);  
+    }  
+
+    function renderComments(comments) {  
+      const list = document.getElementById("commentsList");  
+      list.innerHTML = "";  
+
+      if (!comments || comments.length === 0) {  
+        list.innerHTML = `<div class="text-sm text-zinc-500">No comments yet.</div>`;  
+        return;  
+      }  
+
+      comments.forEach(c => {  
+        const safeBtn = (isAdmin && adminToken)  
+          ? `  
+            <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="openCommentSafety(${selectedPostId}, ${c.id})">  
+              <i data-lucide="shield" class="w-4 h-4"></i>  
+              Safety  
+            </button>  
+          ` : "";  
+
+        const el = document.createElement("div");  
+        el.className = "panel rounded-2xl p-4";  
+        el.innerHTML = `  
+          <div class="flex items-start justify-between gap-3">  
+            <div class="flex-1 min-w-0">  
+              <div class="text-sm text-zinc-200 whitespace-pre-wrap">${escapeHtml(c.text)}</div>  
+              <div class="mt-2 text-xs text-zinc-500">${escapeHtml(c.date || "")}</div>  
+            </div>  
+            ${safeBtn}  
+          </div>  
+        `;  
+        list.appendChild(el);  
+      });  
+
+      lucide.createIcons();  
+    }  
+
+    async function addComment() {  
+      if (!selectedPostId) return;  
+      const input = document.getElementById("commentInput");  
+      const text = input.value.trim();  
+      if (!text) return toast("Write a comment first", "warn");  
+
+      try {  
+        const res = await fetch(`/api/posts/${selectedPostId}/comment`, {  
+          method: "POST",  
+          headers: { "Content-Type": "application/json", ...authHeaders() },  
+          body: JSON.stringify({ text })  
+        });  
+
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Comment failed", "bad");  
+
+        toast("Comment added", "ok");  
+        input.value = "";  
+        openPostModal(selectedPostId);  
+
+        const countEl = document.querySelector(`[data-commentcount="${selectedPostId}"]`);  
+        if (countEl) countEl.textContent = data.comments;  
+
+        await checkMaintenance();  
+      } catch (e) {  
+        toast("Network error", "bad");  
+      }  
+    }  
+
+    // ---------- Reporting ----------  
+    function handleReportReasonChange() {  
+      const reason = document.getElementById("reportReason").value;  
+      const msg = document.getElementById("reportMessage");  
+      if (reason === "Something else") msg.classList.remove("hidden");  
+      else msg.classList.add("hidden");  
+    }  
+
+    function openReport(postId) {  
+      reportPostId = postId;  
+      document.getElementById("reportReason").value = "Spam";  
+      document.getElementById("reportMessage").value = "";  
+      document.getElementById("reportMessage").classList.add("hidden");  
+      toggleModal("reportModal", true);  
+    }  
+
+    async function submitReport() {  
+      if (!reportPostId) return;  
+
+      const reason = document.getElementById("reportReason").value;  
+      const message = document.getElementById("reportMessage").value.trim();  
+
+      try {  
+        const res = await fetch(`/api/posts/${reportPostId}/report`, {  
+          method: "POST",  
+          headers: { "Content-Type": "application/json", ...authHeaders() },  
+          body: JSON.stringify({ reason, message })  
+        });  
+
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Report failed", "bad");  
+
+        toast("Report submitted", "ok");  
+        toggleModal("reportModal", false);  
+        reportPostId = null;  
+        await checkMaintenance();  
+      } catch (e) {  
+        toast("Network error", "bad");  
+      }  
+    }  
+
+    // ---------- Media Viewer (fullscreen, swipe, zoom images) ----------  
+    function openMediaViewer(index) {  
+      if (!Array.isArray(viewerItems) || !viewerItems.length) return;  
+      viewerIndex = Math.max(0, Math.min(Number(index || 0), viewerItems.length - 1));  
+      resetViewerTransform(true);  
+      toggleModal("mediaViewer", true);  
+      renderViewer();  
+      lockScroll(true);  
+      lucide.createIcons();  
+    }  
+
+    function closeMediaViewer(e) {  
+      const ev = e || window.event;  
+      if (ev && ev.stopPropagation) ev.stopPropagation();  
+      toggleModal("mediaViewer", false);  
+      clearViewerPointers();  
+      lockScroll(false);  
+      // stop any video playback when closing  
+      const wrap = document.getElementById("viewerWrap");  
+      const vid = wrap.querySelector("video");  
+      if (vid) { try { vid.pause(); } catch(_){} }  
+    }  
+
+    function lockScroll(on) {  
+      document.body.style.overflow = on ? "hidden" : "";  
+    }  
+
+    function setViewerCounter() {  
+      document.getElementById("viewerCounter").textContent = `${viewerIndex + 1} / ${viewerItems.length}`;  
+    }  
+
+    function renderViewer() {  
+      const wrap = document.getElementById("viewerWrap");  
+      wrap.innerHTML = "";  
+
+      const item = viewerItems[viewerIndex];  
+      const kind = item?.kind || "file";  
+      const url = item?.url;  
+
+      setViewerCounter();  
+
+      const zoomBtns = ["zoomInBtn","zoomOutBtn","zoomResetBtn"];  
+      viewerIsImage = (kind === "image");  
+
+      zoomBtns.forEach(id => {  
+        const el = document.getElementById(id);  
+        el.style.opacity = viewerIsImage ? "1" : "0.45";  
+        el.style.pointerEvents = viewerIsImage ? "auto" : "none";  
+      });  
+
+      if (kind === "image") {  
+        const img = document.createElement("img");  
+        img.className = "viewer-img";  
+        img.src = url;  
+        img.alt = item?.name || "image";  
+
+        img.addEventListener("pointerdown", viewerPointerDown);  
+        img.addEventListener("pointermove", viewerPointerMove);  
+        img.addEventListener("pointerup", viewerPointerUp);  
+        img.addEventListener("pointercancel", viewerPointerUp);  
+
+        img.addEventListener("dblclick", (ev) => {  
+          ev.preventDefault();  
+          if (viewerScale <= 1.05) {  
+            viewerScale = 2;  
+            viewerTx = 0;  
+            viewerTy = 0;  
+          } else {  
+            viewerScale = 1;  
+            viewerTx = 0;  
+            viewerTy = 0;  
+          }  
+          applyViewerTransform(img);  
+        });  
+
+        wrap.appendChild(img);  
+        applyViewerTransform(img);  
+      } else if (kind === "video") {  
+        const box = document.createElement("div");  
+        box.className = "viewer-video";  
+
+        const vid = document.createElement("video");  
+        vid.controls = true;  
+        vid.playsInline = true;  
+        vid.className = "w-full h-full";  
+        const src = document.createElement("source");  
+        src.src = url;  
+        src.type = item?.mimetype || "video/mp4";  
+        vid.appendChild(src);  
+
+        box.appendChild(vid);  
+        wrap.appendChild(box);  
+      } else {  
+        // fallback: open file link  
+        wrap.innerHTML = `  
+          <div class="panel rounded-3xl p-6 text-center max-w-xl mx-auto">  
+            <div class="w-14 h-14 mx-auto rounded-3xl bg-white/5 ring-soft flex items-center justify-center">  
+              <i data-lucide="file" class="w-7 h-7 text-zinc-200"></i>  
+            </div>  
+            <div class="mt-4 font-extrabold text-lg">${escapeHtml(item?.name || "File")}</div>  
+            <div class="mt-2 text-sm text-zinc-500">This file type opens in a new tab.</div>  
+            <a class="mt-5 btn bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 w-full" href="${url}" target="_blank" rel="noopener">  
+              <i data-lucide="external-link" class="w-4 h-4"></i> Open  
+            </a>  
+          </div>  
+        `;  
+        lucide.createIcons();  
+      }  
+    }  
+
+    function prevMedia(e) {  
+      const ev = e || window.event;  
+      if (ev && ev.stopPropagation) ev.stopPropagation();  
+      if (!viewerItems.length) return;  
+      viewerIndex = (viewerIndex - 1 + viewerItems.length) % viewerItems.length;  
+      resetViewerTransform(true);  
+      renderViewer();  
+      lucide.createIcons();  
+    }  
+
+    function nextMedia(e) {  
+      const ev = e || window.event;  
+      if (ev && ev.stopPropagation) ev.stopPropagation();  
+      if (!viewerItems.length) return;  
+      viewerIndex = (viewerIndex + 1) % viewerItems.length;  
+      resetViewerTransform(true);  
+      renderViewer();  
+      lucide.createIcons();  
+    }  
+
+    function zoomIn(e) {  
+      const ev = e || window.event;  
+      if (ev && ev.stopPropagation) ev.stopPropagation();  
+      if (!viewerIsImage) return;  
+      viewerScale = Math.min(6, viewerScale + 0.35);  
+      applyViewerTransform(document.querySelector("#viewerWrap .viewer-img"));  
+    }  
+
+    function zoomOut(e) {  
+      const ev = e || window.event;  
+      if (ev && ev.stopPropagation) ev.stopPropagation();  
+      if (!viewerIsImage) return;  
+      viewerScale = Math.max(1, viewerScale - 0.35);  
+      if (viewerScale === 1) { viewerTx = 0; viewerTy = 0; }  
+      applyViewerTransform(document.querySelector("#viewerWrap .viewer-img"));  
+    }  
+
+    function zoomReset(e) {  
+      const ev = e || window.event;  
+      if (ev && ev.stopPropagation) ev.stopPropagation();  
+      resetViewerTransform(false);  
+      applyViewerTransform(document.querySelector("#viewerWrap .viewer-img"));  
+    }  
+
+    function resetViewerTransform(hard) {  
+      viewerScale = 1;  
+      viewerTx = 0;  
+      viewerTy = 0;  
+      viewerIsPanning = false;  
+      clearViewerPointers();  
+      if (hard) {  
+        viewerStartScale = 1;  
+        viewerStartTx = 0;  
+        viewerStartTy = 0;  
+        viewerStartDist = 0;  
+      }  
+    }  
+
+    function applyViewerTransform(imgEl) {  
+      if (!imgEl) return;  
+      imgEl.style.transform = `translate(${viewerTx}px, ${viewerTy}px) scale(${viewerScale})`;  
+    }  
+
+    function clearViewerPointers() {  
+      viewerPointers.clear();  
+      viewerStartDist = 0;  
+      viewerIsPanning = false;  
+    }  
+
+    function dist(a, b) {  
+      const dx = a.x - b.x;  
+      const dy = a.y - b.y;  
+      return Math.hypot(dx, dy);  
+    }  
+
+    function mid(a, b) {  
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };  
+    }  
+
+    function viewerPointerDown(e) {  
+      e.stopPropagation();  
+      const img = e.currentTarget;  
+      img.setPointerCapture(e.pointerId);  
+
+      viewerPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });  
+
+      if (viewerPointers.size === 1) {  
+        viewerIsPanning = true;  
+        viewerLastPan = { x: e.clientX, y: e.clientY };  
+        viewerStartTx = viewerTx;  
+        viewerStartTy = viewerTy;  
+      }  
+
+      if (viewerPointers.size === 2) {  
+        const pts = Array.from(viewerPointers.values());  
+        viewerStartDist = dist(pts[0], pts[1]);  
+        viewerStartScale = viewerScale;  
+        viewerStartTx = viewerTx;  
+        viewerStartTy = viewerTy;  
+      }  
+
+      applyViewerTransform(img);  
+    }  
+
+    function viewerPointerMove(e) {  
+      e.stopPropagation();  
+      const img = e.currentTarget;  
+      if (!viewerPointers.has(e.pointerId)) return;  
+
+      viewerPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });  
+
+      if (viewerPointers.size === 1 && viewerIsPanning && viewerScale > 1.01) {  
+        const dx = e.clientX - viewerLastPan.x;  
+        const dy = e.clientY - viewerLastPan.y;  
+        viewerTx += dx;  
+        viewerTy += dy;  
+        viewerLastPan = { x: e.clientX, y: e.clientY };  
+      }  
+
+      if (viewerPointers.size === 2) {  
+        const pts = Array.from(viewerPointers.values());  
+        const d = dist(pts[0], pts[1]);  
+        if (viewerStartDist > 0) {  
+          const ratio = d / viewerStartDist;  
+          viewerScale = Math.min(6, Math.max(1, viewerStartScale * ratio));  
+          if (viewerScale <= 1.01) {  
+            viewerScale = 1;  
+            viewerTx = 0;  
+            viewerTy = 0;  
+          }  
+        }  
+      }  
+
+      applyViewerTransform(img);  
+    }  
+
+    function viewerPointerUp(e) {  
+      e.stopPropagation();  
+      const img = e.currentTarget;  
+      if (img && img.releasePointerCapture) {  
+        try { img.releasePointerCapture(e.pointerId); } catch(_) {}  
+      }  
+      viewerPointers.delete(e.pointerId);  
+
+      if (viewerPointers.size === 0) {  
+        viewerIsPanning = false;  
+        if (viewerScale <= 1.01) {  
+          viewerScale = 1;  
+          viewerTx = 0;  
+          viewerTy = 0;  
+        }  
+        applyViewerTransform(document.querySelector("#viewerWrap .viewer-img"));  
+      }  
+
+      if (viewerPointers.size === 1) {  
+        const pt = Array.from(viewerPointers.values())[0];  
+        viewerLastPan = { x: pt.x, y: pt.y };  
+      }  
+    }  
+
+    // swipe on stage (next/prev)  
+    (function setupViewerSwipe() {  
+      const stage = document.getElementById("viewerStage");  
+
+      stage.addEventListener("touchstart", (e) => {  
+        if (!document.getElementById("mediaViewer") || document.getElementById("mediaViewer").classList.contains("hidden")) return;  
+        if (!e.touches || e.touches.length !== 1) return;  
+
+        stageSwipe.active = true;  
+        stageSwipe.moved = false;  
+        stageSwipe.x0 = e.touches[0].clientX;  
+        stageSwipe.y0 = e.touches[0].clientY;  
+      }, { passive: true });  
+
+      stage.addEventListener("touchmove", (e) => {  
+        if (!stageSwipe.active) return;  
+        if (!e.touches || e.touches.length !== 1) return;  
+
+        const x = e.touches[0].clientX;  
+        const y = e.touches[0].clientY;  
+        const dx = x - stageSwipe.x0;  
+        const dy = y - stageSwipe.y0;  
+
+        if (Math.abs(dx) > 10) stageSwipe.moved = true;  
+
+        // if horizontal swipe, prevent scroll  
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 12) {  
+          e.preventDefault();  
+        }  
+      }, { passive: false });  
+
+      stage.addEventListener("touchend", (e) => {  
+        if (!stageSwipe.active) return;  
+        stageSwipe.active = false;  
+
+        // if user is zoomed in on image, don't swipe between media (they probably panning)  
+        if (viewerIsImage && viewerScale > 1.01) return;  
+
+        // compute swipe  
+        const changed = e.changedTouches && e.changedTouches[0];  
+        if (!changed) return;  
+
+        const dx = changed.clientX - stageSwipe.x0;  
+        const dy = changed.clientY - stageSwipe.y0;  
+
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {  
+          if (dx < 0) nextMedia();  
+          else prevMedia();  
+        }  
+      }, { passive: true });  
+    })();  
+
+    // keyboard support  
+    document.addEventListener("keydown", (e) => {  
+      const open = !document.getElementById("mediaViewer").classList.contains("hidden");  
+      if (!open) return;  
+      if (e.key === "Escape") closeMediaViewer();  
+      if (e.key === "ArrowLeft") prevMedia();  
+      if (e.key === "ArrowRight") nextMedia();  
+    });  
+
+    // ---------- Feed render ----------  
+    function renderPosts(posts) {  
+      const feed = document.getElementById('feed');  
+      const empty = document.getElementById('emptyState');  
+
+      feed.innerHTML = '';  
+
+      if (!posts || posts.length === 0) {  
+        empty.classList.remove("hidden");  
+        lucide.createIcons();  
+        return;  
+      } else {  
+        empty.classList.add("hidden");  
+      }  
+
+      posts.forEach(post => {  
+        const el = document.createElement('div');  
+        el.className = 'panel rounded-3xl overflow-hidden fade-up';  
+        el.setAttribute("data-post", post.id);  
+
+        const title = escapeHtml(post.title || 'Untitled');  
+        const text = escapeHtml(post.text || '');  
+        const date = escapeHtml(post.date || '');  
+
+        const mediaHtml = renderAttachments(post.attachments || [], "feed");  
+
+        const adminDeleteBtn = (isAdmin && adminToken)  
+          ? `  
+            <button onclick="adminDeletePost(${post.id})" class="btn bg-red-500/12 hover:bg-red-500/18 text-red-200 ring-soft">  
+              <i data-lucide="trash-2" class="w-4 h-4"></i> Delete  
+            </button>  
+          ` : '';  
+
+        el.innerHTML = `  
+          <div class="p-5">  
+            <div class="flex items-start justify-between gap-3">  
+              <button class="text-left flex-1 min-w-0" onclick="openPostModal(${post.id})">  
+                <h3 class="font-extrabold text-lg text-zinc-100 leading-snug truncate">${title}</h3>  
+                <div class="mt-2 text-sm text-zinc-300/90 whitespace-pre-wrap line-clamp-4">${text}</div>  
+              </button>  
+              <div class="shrink-0">${adminDeleteBtn}</div>  
+            </div>  
+
+            ${mediaHtml}  
+
+            <div class="action-row mt-4">  
+              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="likePost(${post.id})">  
+                <i data-lucide="thumbs-up" class="w-4 h-4"></i>  
+                <span data-likecount="${post.id}">${post.likes || 0}</span>  
+              </button>  
+
+              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="dislikePost(${post.id})">  
+                <i data-lucide="thumbs-down" class="w-4 h-4"></i>  
+                <span data-dislikecount="${post.id}">${post.dislikes || 0}</span>  
+              </button>  
+
+              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="openPostModal(${post.id})">  
+                <i data-lucide="message-circle" class="w-4 h-4"></i>  
+                <span data-commentcount="${post.id}">${post.comments || 0}</span>  
+              </button>  
+
+              <button class="btn bg-amber-600/20 hover:bg-amber-600/30 text-amber-200 ring-soft" onclick="openReport(${post.id})">  
+                <i data-lucide="flag" class="w-4 h-4"></i>  
+                Report  
+              </button>  
+            </div>  
+
+            <div class="mt-4 flex items-center justify-between gap-2 text-xs text-zinc-500 flex-wrap">  
+              <div class="flex items-center gap-2 flex-wrap">  
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 ring-soft">  
+                  <i data-lucide="user" class="w-3.5 h-3.5"></i>  
+                  Anonymous  
+                </span>  
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 ring-soft">  
+                  <i data-lucide="clock" class="w-3.5 h-3.5"></i>  
+                  ${date}  
+                </span>  
+              </div>  
+
+              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200"  
+                onclick="navigator.clipboard.writeText(location.origin + '/#post-${post.id}'); toast('Link copied', 'ok');">  
+                <i data-lucide="link" class="w-4 h-4"></i>  
+                <span class="hidden sm:inline">Copy link</span>  
+              </button>  
+            </div>  
+          </div>  
+        `;  
+
+        feed.appendChild(el);  
+      });  
+
+      lucide.createIcons();  
+    }  
+
+    /* ----------------- the rest of your admin code is unchanged below in your original file ----------------- */
+    /* (I kept it in your original paste; no removals are needed for Firebase integration to work.) */
+
+    // ---------- Admin Panel ----------  
+    async function openAdminPanel() {  
+      if (!isAdmin || !adminToken) return toast("Admin only", "bad");  
+      toggleModal("adminModal", true);  
+      toggleDrawer(false);  
+      await adminTab("posts");  
+    }  
+    function closeAdminPanel() { toggleModal("adminModal", false); }  
+
+    async function adminTab(tab) {  
+      if (!isAdmin || !adminToken) return toast("Admin only", "bad");  
+      const adminMeta = document.getElementById("adminMeta");  
+      const content = document.getElementById("adminContent");  
+      content.innerHTML = skeleton();  
+      adminMeta.textContent = "Loading…";  
+
+      try {  
+        const statusRes = await fetch("/api/admin/status", { headers: authHeaders() });  
+        if (!statusRes.ok) { toast("Admin session expired", "bad"); logoutAdmin(); closeAdminPanel(); return; }  
+        const status = await statusRes.json();  
+        adminMeta.textContent = `Maintenance: ${status.maintenance ? "ON" : "OFF"} • Bans: ${status.bannedCount} • Reports: ${status.reportsCount}`;  
+
+        if (tab === "posts") {  
+          const res = await fetch("/api/admin/posts", { headers: authHeaders() });  
+          const data = await res.json();  
+
+          content.innerHTML = `  
+            <div class="text-sm text-zinc-400 mb-3">All posts (includes owner IP; admin-only)</div>  
+            <div class="space-y-3">  
+              ${data.map(p => `  
+                <div class="panel rounded-2xl p-4">  
+                  <div class="flex items-start justify-between gap-3">  
+                    <div class="flex-1">  
+                      <div class="font-extrabold">${escapeHtml(p.title || "Untitled")}</div>  
+                      <div class="text-sm text-zinc-300 mt-1 whitespace-pre-wrap">${escapeHtml(p.text || "")}</div>  
+                      <div class="text-xs text-zinc-500 mt-2">Owner IP: <span class="text-zinc-300">${escapeHtml(p.ownerIp)}</span></div>  
+                      <div class="text-xs text-zinc-500 mt-1">Likes: ${p.likes} • Dislikes: ${p.dislikes} • Comments: ${p.comments.length} • Files: ${(p.attachments||[]).length}</div>  
+                    </div>  
+
+                    <div class="flex flex-col gap-2">  
+                      <button class="btn bg-red-500/12 hover:bg-red-500/18 text-red-200 ring-soft" onclick="adminDeletePost(${p.id})">  
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Delete  
+                      </button>  
+                      <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminBanIpPrompt('${escapeHtml(p.ownerIp)}')">  
+                        <i data-lucide="ban" class="w-4 h-4"></i> Ban owner IP  
+                      </button>  
+                    </div>  
+                  </div>  
+                </div>  
+              `).join("")}  
+            </div>  
+          `;  
+          lucide.createIcons();  
+          return;  
+        }  
+
+        if (tab === "reports") {  
+          const res = await fetch("/api/admin/reports", { headers: authHeaders() });  
+          const data = await res.json();  
+
+          if (!data.length) { content.innerHTML = `<div class="text-sm text-zinc-500">No reports right now.</div>`; return; }  
+
+          content.innerHTML = `  
+            <div class="text-sm text-zinc-400 mb-3">Reports (includes reporter IP + owner IP; admin-only)</div>  
+            <div class="space-y-3">  
+              ${data.map(r => `  
+                <div class="panel rounded-2xl p-4">  
+                  <div class="flex items-start justify-between gap-3">  
+                    <div class="flex-1">  
+                      <div class="font-extrabold">Reason: ${escapeHtml(r.reason)}</div>  
+                      <div class="text-xs text-zinc-500 mt-1">Time: ${escapeHtml(r.timestamp)}</div>  
+                      ${r.message ? `<div class="text-sm text-zinc-300 mt-2 whitespace-pre-wrap">Message: ${escapeHtml(r.message)}</div>` : ``}  
+
+                      <div class="mt-3 p-3 rounded-2xl bg-white/5 ring-soft">  
+                        ${r.post ? `  
+                          <div class="font-bold">${escapeHtml(r.post.title || "Untitled")}</div>  
+                          <div class="text-sm text-zinc-300 mt-1 whitespace-pre-wrap">${escapeHtml(r.post.text || "")}</div>  
+                          <div class="text-xs text-zinc-500 mt-2">Post owner IP: <span class="text-zinc-300">${escapeHtml(r.post.ownerIp)}</span></div>  
+                        ` : `<div class="text-sm text-zinc-500">Post deleted or missing.</div>`}  
+                      </div>  
+
+                      <div class="text-xs text-zinc-500 mt-2">Reporter IP: <span class="text-zinc-300">${escapeHtml(r.reporterIp)}</span></div>  
+                    </div>  
+
+                    <div class="flex flex-col gap-2">  
+                      ${r.post ? `  
+                        <button class="btn bg-red-500/12 hover:bg-red-500/18 text-red-200 ring-soft" onclick="adminDeletePost(${r.postId})">  
+                          <i data-lucide="trash-2" class="w-4 h-4"></i> Delete post  
+                        </button>  
+                        <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminBanIpPrompt('${escapeHtml(r.post.ownerIp)}')">  
+                          <i data-lucide="ban" class="w-4 h-4"></i> Ban owner  
+                        </button>  
+                      ` : ``}  
+
+                      <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminBanIpPrompt('${escapeHtml(r.reporterIp)}')">  
+                        <i data-lucide="ban" class="w-4 h-4"></i> Ban reporter  
+                      </button>  
+
+                      <button class="btn bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-200 ring-soft" onclick="adminIgnoreReport(${r.id})">  
+                        <i data-lucide="check" class="w-4 h-4"></i> Ignore  
+                      </button>  
+                    </div>  
+                  </div>  
+                </div>  
+              `).join("")}  
+            </div>  
+          `;  
+          lucide.createIcons();  
+          return;  
+        }  
+
+        if (tab === "bans") {  
+          const res = await fetch("/api/admin/bans", { headers: authHeaders() });  
+          const data = await res.json();  
+
+          const list = (data.banned || []).map(ip => `  
+            <div class="panel rounded-2xl p-4 flex items-center justify-between gap-3">  
+              <div class="font-mono text-sm text-zinc-200">${escapeHtml(ip)}</div>  
+              <button class="btn bg-white/5 hover:bg-white/10 ring-soft text-zinc-200" onclick="adminUnbanIp('${escapeHtml(ip)}')">  
+                <i data-lucide="undo-2" class="w-4 h-4"></i> Unban  
+              </button>  
+            </div>  
+          `).join("");  
+
+          content.innerHTML = `  
+            <div class="text-sm text-zinc-400 mb-3">Banned IPs (posting & reporting disabled for banned)</div>  
+            <div class="flex gap-2 mb-4">  
+              <input id="banIpInput" class="flex-1 bg-black/30 p-3 rounded-2xl border border-white/10 focus:outline-none focus:border-emerald-500/70"  
+                placeholder="Enter IP to ban (copy from admin posts/reports)"/>  
+              <button class="btn bg-emerald-600 hover:bg-emerald-500 text-white" onclick="adminBanIpFromInput()">  
+                <i data-lucide="ban" class="w-4 h-4"></i> Ban  
+              </button>  
+            </div>  
+            <div class="space-y-2">  
+              ${list || `<div class="text-sm text-zinc-500">No banned IPs.</div>`}  
+            </div>  
+          `;  
+          lucide.createIcons();  
+          return;  
+        }  
+
+        if (tab === "maintenance") {  
+          content.innerHTML = `  
+            <div class="text-sm text-zinc-400 mb-3">Maintenance mode blocks normal users. Admins can bypass.</div>  
+            <div class="panel rounded-2xl p-5">  
+              <div class="flex items-center justify-between gap-4">  
+                <div>  
+                  <div class="font-extrabold">Maintenance Mode</div>  
+                  <div class="text-sm text-zinc-500 mt-1">  
+                    Current: <span class="font-bold ${status.maintenance ? "text-amber-300" : "text-emerald-300"}">${status.maintenance ? "ON" : "OFF"}</span>  
+                  </div>  
+                </div>  
+
+                <div class="flex gap-2">  
+                  <button class="btn bg-amber-600 hover:bg-amber-500 text-white" onclick="setMaintenance(true)">  
+                    <i data-lucide="wrench" class="w-4 h-4"></i> Enable  
+                  </button>  
+                  <button class="btn bg-emerald-600 hover:bg-emerald-500 text-white" onclick="setMaintenance(false)">  
+                    <i data-lucide="check" class="w-4 h-4"></i> Disable  
+                  </button>  
+                </div>  
+              </div>  
+            </div>  
+          `;  
+          lucide.createIcons();  
+          return;  
+        }  
+
+      } catch (e) {  
+        content.innerHTML = `<div class="text-sm text-zinc-500">Failed to load admin panel.</div>`;  
+      }  
+    }  
+
+    async function adminDeletePost(id) {  
+      if (!isAdmin || !adminToken) return toast("Admin only", "bad");  
+      if (!confirm("Delete this post?")) return;  
+      try {  
+        const res = await fetch(`/api/admin/posts/${id}`, { method: "DELETE", headers: authHeaders() });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Delete failed", "bad");  
+        toast("Deleted", "ok");  
+        closeSafetyDetails();  
+        await loadPosts();  
+        if (!document.getElementById("adminModal").classList.contains("hidden")) {  
+          await adminTab("posts");  
+        }  
+      } catch (e) { toast("Network error", "bad"); }  
+    }  
+
+    async function adminIgnoreReport(id) {  
+      if (!isAdmin || !adminToken) return toast("Admin only", "bad");  
+      try {  
+        const res = await fetch(`/api/admin/reports/${id}/ignore`, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }) });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Ignore failed", "bad");  
+        toast("Report ignored", "ok");  
+        await adminTab("reports");  
+      } catch (e) { toast("Network error", "bad"); }  
+    }  
+
+    function adminBanIpPrompt(ip) {  
+      const input = prompt("Ban this IP?", ip);  
+      if (!input) return;  
+      adminBanIp(input.trim());  
+    }  
+
+    async function adminBanIpFromInput() {  
+      const el = document.getElementById("banIpInput");  
+      const ip = (el.value || "").trim();  
+      if (!ip) return toast("Enter an IP first", "warn");  
+      await adminBanIp(ip);  
+      el.value = "";  
+    }  
+
+    async function adminBanIp(ip) {  
+      try {  
+        const res = await fetch(`/api/admin/ban`, {  
+          method: "POST",  
+          headers: { "Content-Type": "application/json", ...authHeaders() },  
+          body: JSON.stringify({ ip })  
+        });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Ban failed", "bad");  
+        toast("IP banned", "ok");  
+        if (!document.getElementById("adminModal").classList.contains("hidden")) {  
+          await adminTab("bans");  
+        }  
+        await checkMaintenance();  
+      } catch (e) { toast("Network error", "bad"); }  
+    }  
+
+    async function adminUnbanIp(ip) {  
+      try {  
+        const res = await fetch(`/api/admin/unban`, {  
+          method: "POST",  
+          headers: { "Content-Type": "application/json", ...authHeaders() },  
+          body: JSON.stringify({ ip })  
+        });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Unban failed", "bad");  
+        toast("IP unbanned", "ok");  
+        await adminTab("bans");  
+        await checkMaintenance();  
+      } catch (e) { toast("Network error", "bad"); }  
+    }  
+
+    async function setMaintenance(enabled) {  
+      try {  
+        const res = await fetch(`/api/admin/maintenance`, {  
+          method: "POST",  
+          headers: { "Content-Type": "application/json", ...authHeaders() },  
+          body: JSON.stringify({ enabled })  
+        });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) return toast(data.error || "Maintenance toggle failed", "bad");  
+        toast(`Maintenance ${enabled ? "enabled" : "disabled"}`, enabled ? "warn" : "ok");  
+        await checkMaintenance();  
+        await adminTab("maintenance");  
+      } catch (e) { toast("Network error", "bad"); }  
+    }  
+
+    // ---------- Safety modal ----------  
+    function closeSafetyDetails() {  
+      safetyTargetPostId = null;  
+      safetyTargetIp = null;  
+      toggleModal("safetyModal", false);  
+    }  
+
+    async function openPostSafety(postId) {  
+      if (!isAdmin || !adminToken) return toast("Admin only", "bad");  
+      document.getElementById("safetyTitle").textContent = "Post Safety Details";  
+      safetyTargetPostId = postId;  
+      safetyTargetIp = null;  
+
+      toggleModal("safetyModal", true);  
+      const body = document.getElementById("safetyBody");  
+      body.innerHTML = skeleton();  
+
+      try {  
+        const res = await fetch(`/api/admin/posts/${postId}/details`, { headers: authHeaders() });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) { toast(data.error || "Failed", "bad"); closeSafetyDetails(); return; }  
+        safetyTargetIp = data.ip || null;  
+
+        body.innerHTML = safetyHtml(data);  
+        document.getElementById("safetyDeleteBtn").onclick = () => adminDeletePost(safetyTargetPostId);  
+        document.getElementById("safetyBanBtn").onclick = () => safetyBanIp();  
+        lucide.createIcons();  
+      } catch (e) {  
+        toast("Network error", "bad");  
+        closeSafetyDetails();  
+      }  
+    }  
+
+    async function openCommentSafety(postId, commentId) {  
+      if (!isAdmin || !adminToken) return toast("Admin only", "bad");  
+      document.getElementById("safetyTitle").textContent = "Comment Safety Details";  
+      safetyTargetPostId = postId;  
+      safetyTargetIp = null;  
+
+      toggleModal("safetyModal", true);  
+      const body = document.getElementById("safetyBody");  
+      body.innerHTML = skeleton();  
+
+      try {  
+        const res = await fetch(`/api/admin/posts/${postId}/comments/${commentId}/details`, { headers: authHeaders() });  
+        const data = await res.json().catch(() => ({}));  
+        if (!res.ok) { toast(data.error || "Failed", "bad"); closeSafetyDetails(); return; }  
+        safetyTargetIp = data.ip || null;  
+
+        body.innerHTML = safetyHtml(data);  
+        document.getElementById("safetyDeleteBtn").onclick = () => adminDeletePost(safetyTargetPostId);  
+        document.getElementById("safetyBanBtn").onclick = () => safetyBanIp();  
+        lucide.createIcons();  
+      } catch (e) {  
+        toast("Network error", "bad");  
+        closeSafetyDetails();  
+      }  
+    }  
+
+    function safetyHtml(data) {  
+      const geo = data.geo || {};  
+      return `  
+        <div class="space-y-3">  
+          <div class="panel rounded-2xl p-4">  
+            <div class="text-xs text-zinc-500">IP</div>  
+            <div class="mt-1 font-mono text-sm text-zinc-200 break-all">${escapeHtml(data.ip || "unknown")}</div>  
+          </div>  
+
+          <div class="grid sm:grid-cols-2 gap-3">  
+            <div class="panel rounded-2xl p-4">  
+              <div class="text-xs text-zinc-500">Device</div>  
+              <div class="mt-1 text-sm text-zinc-200">  
+                ${escapeHtml(data.device?.type || "unknown")}  
+                ${(data.device?.vendor || data.device?.model) ? ` • ${escapeHtml((data.device?.vendor||"") + " " + (data.device?.model||""))}` : ""}  
+              </div>  
+            </div>  
+
+            <div class="panel rounded-2xl p-4">  
+              <div class="text-xs text-zinc-500">Browser</div>  
+              <div class="mt-1 text-sm text-zinc-200">  
+                ${escapeHtml(data.browser?.name || "unknown")}  
+                ${data.browser?.version ? ` • ${escapeHtml(data.browser.version)}` : ""}  
+              </div>  
+            </div>  
+
+            <div class="panel rounded-2xl p-4">  
+              <div class="text-xs text-zinc-500">OS</div>  
+              <div class="mt-1 text-sm text-zinc-200">  
+                ${escapeHtml(data.os?.name || "unknown")}  
+                ${data.os?.version ? ` • ${escapeHtml(data.os.version)}` : ""}  
+              </div>  
+            </div>  
+
+            <div class="panel rounded-2xl p-4">  
+              <div class="text-xs text-zinc-500">Language</div>  
+              <div class="mt-1 text-sm text-zinc-200">  
+                ${escapeHtml(data.network?.acceptLanguage || "unknown")}  
+              </div>  
+            </div>  
+          </div>  
+
+          <div class="panel rounded-2xl p-4">  
+            <div class="text-xs text-zinc-500">Location / ISP (optional)</div>  
+            <div class="mt-2 text-sm text-zinc-200">  
+              City: <span class="text-zinc-300">${escapeHtml(geo.city || "not available")}</span><br/>  
+              Region: <span class="text-zinc-300">${escapeHtml(geo.region || "not available")}</span><br/>  
+              Country: <span class="text-zinc-300">${escapeHtml(geo.country || "not available")}</span><br/>  
+              ISP/Org: <span class="text-zinc-300">${escapeHtml(geo.ispOrg || "not available")}</span>  
+            </div>  
+            <div class="mt-2 text-xs text-zinc-500">  
+              Tip: set <span class="font-mono">IPINFO_TOKEN</span> secret to enable city/ISP lookup.  
+            </div>  
+          </div>  
+        </div>  
+      `;  
+    }  
+
+    async function safetyBanIp() {  
+      if (!safetyTargetIp) return toast("No IP available", "warn");  
+      if (!confirm(`Ban this IP?\n\n${safetyTargetIp}`)) return;  
+      await adminBanIp(safetyTargetIp);  
+    }  
+
+    // ---------- Init ----------  
+    (async function init() {  
+      setAdminUI(false);  
+      await verifyAdminToken();  
+      await checkMaintenance();  
+      await loadPosts();  
+      // ensure preview UI is clean on load  
+      renderFilePreview();  
+    })();  
+  </script>  
+</body>  
 </html>

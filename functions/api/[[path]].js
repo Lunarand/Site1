@@ -121,7 +121,7 @@ export async function onRequest(context) {
       return json({ ok: true }, 200);
     }
 
-    // Upload (create post) - multipart form data
+    // Upload (create post)
     if (method === "POST" && path === "upload") {
       const maintenance = await getMaintenance(env);
       if (maintenance && !(await isAdmin(request, env))) {
@@ -133,88 +133,128 @@ export async function onRequest(context) {
         return json({ error: "You are banned" }, 403);
       }
 
-      const form = await request.formData();
-      const title = String(form.get("title") || "").trim();
-      const text = String(form.get("text") || "").trim();
+      const ct = (request.headers.get("content-type") || "").toLowerCase();
 
-      // collect files (multiple "files")
-      const files = form.getAll("files").filter(Boolean);
+      let title = "";
+      let text = "";
+      let attachments = [];
 
-      // ---------- Firebase file URLs support ----------
-      // Frontend uploads to Firebase Storage and sends URLs here as "firebaseFiles" (or "firebaseUrls")
-      const firebaseFiles = form.getAll("firebaseFiles").filter(Boolean);
-      const firebaseUrls = form.getAll("firebaseUrls").filter(Boolean);
+      // ✅ Firebase flow: frontend sends JSON { title, text, attachments }
+      if (ct.includes("application/json")) {
+        const body = await safeJson(request);
+        title = String(body?.title || "").trim();
+        text = String(body?.text || "").trim();
+
+        const incoming = Array.isArray(body?.attachments) ? body.attachments : [];
+        for (const a of incoming) {
+          const urlStr = String(a?.url || "").trim();
+          if (!urlStr) continue;
+
+          const guessed = guessFromUrl(urlStr);
+          const mimetype = String(a?.mimetype || guessed.mimetype || "application/octet-stream");
+          const kind = String(a?.kind || guessed.kind || kindFromMime(mimetype));
+          const name = String(a?.name || guessed.name || "file");
+          const size = Number(a?.size || 0) || 0;
+
+          attachments.push({
+            key: urlStr, // store url as key
+            url: urlStr, // Firebase URL
+            kind,
+            name,
+            mimetype,
+            size,
+          });
+        }
+
+        // de-dupe attachments
+        if (attachments.length > 1) {
+          const seen = new Set();
+          const out = [];
+          for (const x of attachments) {
+            const k = String(x?.url || x?.key || "");
+            if (!k) continue;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(x);
+          }
+          attachments = out;
+        }
+      } else {
+        // ✅ Backwards compatible: old multipart formData still works
+        const form = await request.formData();
+        title = String(form.get("title") || "").trim();
+        text = String(form.get("text") || "").trim();
+
+        // collect files (multiple "files")
+        const files = form.getAll("files").filter(Boolean);
+
+        // ---------- Firebase file URLs support ----------
+        const firebaseFiles = form.getAll("firebaseFiles").filter(Boolean);
+        const firebaseUrls = form.getAll("firebaseUrls").filter(Boolean);
+
+        const hasFirebase = firebaseFiles.length > 0 || firebaseUrls.length > 0;
+        const hasRawFiles = files.some((f) => f instanceof File);
+
+        if (!hasFirebase && hasRawFiles) {
+          return json(
+            {
+              error:
+                "Direct file uploads are disabled. Upload files to Firebase Storage in the frontend and send their public download URLs as firebaseFiles[] (or firebaseUrls[]).",
+            },
+            400
+          );
+        }
+
+        for (const u of firebaseFiles) {
+          const urlStr = String(u || "").trim();
+          if (!urlStr) continue;
+
+          const guessed = guessFromUrl(urlStr);
+
+          attachments.push({
+            key: urlStr,
+            url: urlStr,
+            kind: guessed.kind,
+            name: guessed.name,
+            mimetype: guessed.mimetype,
+            size: 0,
+          });
+        }
+
+        for (const u of firebaseUrls) {
+          const urlStr = String(u || "").trim();
+          if (!urlStr) continue;
+
+          const guessed = guessFromUrl(urlStr);
+
+          attachments.push({
+            key: urlStr,
+            url: urlStr,
+            kind: guessed.kind,
+            name: guessed.name,
+            mimetype: guessed.mimetype,
+            size: 0,
+          });
+        }
+
+        if (attachments.length > 1) {
+          const seen = new Set();
+          const out = [];
+          for (const a of attachments) {
+            const k = String(a?.url || a?.key || "");
+            if (!k) continue;
+            if (seen.has(k)) continue;
+            seen.add(k);
+            out.push(a);
+          }
+          attachments.length = 0;
+          attachments.push(...out);
+        }
+      }
 
       const postId = crypto.randomUUID();
       const createdAt = new Date().toISOString();
-
       const ownerIp = getClientIp(request);
-
-      const attachments = [];
-
-      // ---------- Firebase-only behavior ----------
-      // If firebase URLs are provided, we store ONLY those (no KV file storage).
-      // If user sent raw files without firebase URLs, we block (so it doesn't use KV anymore).
-      const hasFirebase = firebaseFiles.length > 0 || firebaseUrls.length > 0;
-      const hasRawFiles = files.some((f) => f instanceof File);
-
-      if (!hasFirebase && hasRawFiles) {
-        return json(
-          {
-            error:
-              "Direct file uploads are disabled. Upload files to Firebase Storage in the frontend and send their public download URLs as firebaseFiles[] (or firebaseUrls[]).",
-          },
-          400
-        );
-      }
-
-      // ---------- Add Firebase URLs into attachments ----------
-      for (const u of firebaseFiles) {
-        const urlStr = String(u || "").trim();
-        if (!urlStr) continue;
-
-        const guessed = guessFromUrl(urlStr);
-
-        attachments.push({
-          key: urlStr, // keep the url as key so it can be found later
-          url: urlStr, // direct Firebase URL
-          kind: guessed.kind, // image/video/audio/file (best effort)
-          name: guessed.name, // best effort filename
-          mimetype: guessed.mimetype, // best effort mimetype
-          size: 0, // unknown (Firebase URL doesn't give size here)
-        });
-      }
-
-      for (const u of firebaseUrls) {
-        const urlStr = String(u || "").trim();
-        if (!urlStr) continue;
-
-        const guessed = guessFromUrl(urlStr);
-
-        attachments.push({
-          key: urlStr,
-          url: urlStr,
-          kind: guessed.kind,
-          name: guessed.name,
-          mimetype: guessed.mimetype,
-          size: 0,
-        });
-      }
-
-      // de-dupe attachments (in case both fields were used)
-      if (attachments.length > 1) {
-        const seen = new Set();
-        const out = [];
-        for (const a of attachments) {
-          const k = String(a?.url || a?.key || "");
-          if (!k) continue;
-          if (seen.has(k)) continue;
-          seen.add(k);
-          out.push(a);
-        }
-        attachments.length = 0;
-        attachments.push(...out);
-      }
 
       const post = {
         id: postId,
@@ -738,4 +778,3 @@ async function ignoreReport(env, rid) {
   const idx = await getReportIndex(env);
   await setReportIndex(env, idx.filter((x) => x !== rid));
 }
-```0

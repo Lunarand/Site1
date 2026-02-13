@@ -121,7 +121,7 @@ export async function onRequest(context) {
       return json({ ok: true }, 200);
     }
 
-    // Upload (create post)
+    // Upload (create post) - RE-ENABLED FOR KV STORAGE
     if (method === "POST" && path === "upload") {
       const maintenance = await getMaintenance(env);
       if (maintenance && !(await isAdmin(request, env))) {
@@ -133,123 +133,37 @@ export async function onRequest(context) {
         return json({ error: "You are banned" }, 403);
       }
 
-      const ct = (request.headers.get("content-type") || "").toLowerCase();
+      const form = await request.formData();
+      const title = String(form.get("title") || "").trim();
+      const text = String(form.get("text") || "").trim();
+      const files = form.getAll("files").filter(Boolean);
 
-      let title = "";
-      let text = "";
       let attachments = [];
 
-      // ✅ Firebase flow: frontend sends JSON { title, text, attachments }
-      if (ct.includes("application/json")) {
-        const body = await safeJson(request);
-        title = String(body?.title || "").trim();
-        text = String(body?.text || "").trim();
+      for (const f of files) {
+        if (!(f instanceof File)) continue;
 
-        const incoming = Array.isArray(body?.attachments) ? body.attachments : [];
-        for (const a of incoming) {
-          const urlStr = String(a?.url || "").trim();
-          if (!urlStr) continue;
-
-          const guessed = guessFromUrl(urlStr);
-          const mimetype = String(a?.mimetype || guessed.mimetype || "application/octet-stream");
-          const kind = String(a?.kind || guessed.kind || kindFromMime(mimetype));
-          const name = String(a?.name || guessed.name || "file");
-          const size = Number(a?.size || 0) || 0;
-
-          attachments.push({
-            key: urlStr, // store url as key
-            url: urlStr, // Firebase URL
-            kind,
-            name,
-            mimetype,
-            size,
-          });
+        // KV limit is 25MB
+        if (f.size > 25 * 1024 * 1024) {
+          return json({ error: `File ${f.name} is too large. Max 25MB allowed for KV storage.` }, 400);
         }
 
-        // de-dupe attachments
-        if (attachments.length > 1) {
-          const seen = new Set();
-          const out = [];
-          for (const x of attachments) {
-            const k = String(x?.url || x?.key || "");
-            if (!k) continue;
-            if (seen.has(k)) continue;
-            seen.add(k);
-            out.push(x);
-          }
-          attachments = out;
-        }
-      } else {
-        // ✅ Backwards compatible: old multipart formData still works
-        const form = await request.formData();
-        title = String(form.get("title") || "").trim();
-        text = String(form.get("text") || "").trim();
+        const buffer = await f.arrayBuffer();
+        const b64 = arrayBufferToBase64(buffer);
+        const fileUuid = crypto.randomUUID();
+        const fileKey = `file:${fileUuid}`;
 
-        // collect files (multiple "files")
-        const files = form.getAll("files").filter(Boolean);
+        // Save binary data to KV
+        await env.DB.put(fileKey, b64);
 
-        // ---------- Firebase file URLs support ----------
-        const firebaseFiles = form.getAll("firebaseFiles").filter(Boolean);
-        const firebaseUrls = form.getAll("firebaseUrls").filter(Boolean);
-
-        const hasFirebase = firebaseFiles.length > 0 || firebaseUrls.length > 0;
-        const hasRawFiles = files.some((f) => f instanceof File);
-
-        if (!hasFirebase && hasRawFiles) {
-          return json(
-            {
-              error:
-                "Direct file uploads are disabled. Upload files to Firebase Storage in the frontend and send their public download URLs as firebaseFiles[] (or firebaseUrls[]).",
-            },
-            400
-          );
-        }
-
-        for (const u of firebaseFiles) {
-          const urlStr = String(u || "").trim();
-          if (!urlStr) continue;
-
-          const guessed = guessFromUrl(urlStr);
-
-          attachments.push({
-            key: urlStr,
-            url: urlStr,
-            kind: guessed.kind,
-            name: guessed.name,
-            mimetype: guessed.mimetype,
-            size: 0,
-          });
-        }
-
-        for (const u of firebaseUrls) {
-          const urlStr = String(u || "").trim();
-          if (!urlStr) continue;
-
-          const guessed = guessFromUrl(urlStr);
-
-          attachments.push({
-            key: urlStr,
-            url: urlStr,
-            kind: guessed.kind,
-            name: guessed.name,
-            mimetype: guessed.mimetype,
-            size: 0,
-          });
-        }
-
-        if (attachments.length > 1) {
-          const seen = new Set();
-          const out = [];
-          for (const a of attachments) {
-            const k = String(a?.url || a?.key || "");
-            if (!k) continue;
-            if (seen.has(k)) continue;
-            seen.add(k);
-            out.push(a);
-          }
-          attachments.length = 0;
-          attachments.push(...out);
-        }
+        attachments.push({
+          key: fileKey,
+          url: `/api/file/${encodeURIComponent(fileKey)}`,
+          kind: kindFromMime(f.type),
+          name: f.name || "file",
+          mimetype: f.type || "application/octet-stream",
+          size: f.size || 0
+        });
       }
 
       const postId = crypto.randomUUID();
@@ -274,7 +188,7 @@ export async function onRequest(context) {
       return json({ ok: true, id: postId }, 200);
     }
 
-    // Serve stored file (KV legacy)
+    // Serve stored file (KV)
     if (method === "GET" && path.startsWith("file/")) {
       const key = decodeURIComponent(path.slice("file/".length));
       if (!key.startsWith("file:")) return new Response("Not found", { status: 404 });
@@ -282,14 +196,11 @@ export async function onRequest(context) {
       const b64 = await env.DB.get(key);
       if (!b64) return new Response("Not found", { status: 404 });
 
-      // try read metadata from posts (to set correct mimetype + filename)
       const meta = await findFileMeta(env, key);
-
       const bytes = base64ToUint8Array(b64);
       const headers = new Headers();
       headers.set("Content-Type", meta?.mimetype || "application/octet-stream");
 
-      // inline so images/videos open properly
       const safeName = (meta?.name || "file").replace(/["\\]/g, "");
       headers.set("Content-Disposition", `inline; filename="${safeName}"`);
       headers.set("Cache-Control", "public, max-age=31536000, immutable");
@@ -317,7 +228,6 @@ export async function onRequest(context) {
     if (path === "admin/posts" && method === "GET") {
       if (!(await isAdmin(request, env))) return json({ error: "Admin only" }, 403);
       const posts = await listPosts(env, { includePrivate: true });
-      // includePrivate shows ownerIp
       const full = [];
       for (const p of posts) {
         const post = await getPost(env, p.id);
@@ -340,7 +250,6 @@ export async function onRequest(context) {
       const post = await getPost(env, id);
       if (!post) return json({ error: "Not found" }, 404);
 
-      // return minimal safety info that your frontend expects
       return json(
         {
           ip: post.ownerIp || null,
@@ -348,7 +257,7 @@ export async function onRequest(context) {
           browser: { name: "unknown" },
           os: { name: "unknown" },
           network: { acceptLanguage: request.headers.get("accept-language") || "unknown" },
-          geo: {}, // optional, can add later if you want
+          geo: {}, 
         },
         200
       );
@@ -418,7 +327,6 @@ export async function onRequest(context) {
       return json({ ok: true, maintenance: enabled }, 200);
     }
 
-    // Not found
     return withCors(new Response("Not found", { status: 404 }));
   } catch (err) {
     return json({ error: "Server error", detail: String(err?.message || err) }, 500);
@@ -464,57 +372,6 @@ function kindFromMime(mime) {
   return "file";
 }
 
-// ---------- best-effort guessing from URL (Firebase Storage download URLs)
-function guessFromUrl(urlStr) {
-  try {
-    const u = new URL(urlStr);
-    const pathname = u.pathname || "";
-    const rawName = pathname.split("/").pop() || "file";
-    const decoded = decodeURIComponent((rawName || "file").split("?")[0] || rawName || "file");
-
-    // If decoded contains folder segments (e.g. "folder/file.jpg"), keep only the filename
-    const name = decoded.includes("/") ? decoded.split("/").pop() : decoded;
-
-    const lower = name.toLowerCase();
-    const ext = lower.includes(".") ? lower.split(".").pop() : "";
-
-    const mimetype = mimeFromExt(ext);
-    const kind = kindFromMime(mimetype);
-
-    return { name: name || "file", mimetype, kind };
-  } catch {
-    return { name: "file", mimetype: "application/octet-stream", kind: "file" };
-  }
-}
-
-// ---------- minimal extension -> mimetype mapping
-function mimeFromExt(ext) {
-  const e = String(ext || "").toLowerCase();
-  if (e === "png") return "image/png";
-  if (e === "jpg" || e === "jpeg") return "image/jpeg";
-  if (e === "gif") return "image/gif";
-  if (e === "webp") return "image/webp";
-  if (e === "mp4") return "video/mp4";
-  if (e === "webm") return "video/webm";
-  if (e === "mov") return "video/quicktime";
-  if (e === "mp3") return "audio/mpeg";
-  if (e === "wav") return "audio/wav";
-  if (e === "ogg") return "audio/ogg";
-  if (e === "pdf") return "application/pdf";
-  if (e === "txt") return "text/plain";
-  if (e === "zip") return "application/zip";
-  if (e === "rar") return "application/vnd.rar";
-  if (e === "7z") return "application/x-7z-compressed";
-  if (e === "doc") return "application/msword";
-  if (e === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  if (e === "ppt") return "application/vnd.ms-powerpoint";
-  if (e === "pptx") return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
-  if (e === "xls") return "application/vnd.ms-excel";
-  if (e === "xlsx") return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-  if (e === "apk") return "application/vnd.android.package-archive";
-  return "application/octet-stream";
-}
-
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let bin = "";
@@ -528,18 +385,6 @@ function base64ToUint8Array(b64) {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
-
-/* -------------------- storage model --------------------
-KV keys:
-- post:<id>                    -> JSON post
-- posts:index                  -> JSON array of post ids (newest first)
-- maintenance                  -> "1" or "0"
-- bans                         -> JSON array of IPs
-- reports:index                -> JSON array of report ids (newest first)
-- report:<rid>                 -> JSON report object
-- admin:token:<token>          -> "1" (TTL)
-- file:<postId>:<uuid>         -> base64 bytes  (legacy)
--------------------------------------------------------- */
 
 async function getMaintenance(env) {
   const v = await env.DB.get("maintenance");
@@ -557,7 +402,7 @@ async function getIndex(env) {
 }
 
 async function setIndex(env, arr) {
-  await env.DB.put("posts:index", JSON.stringify(arr.slice(0, 500))); // keep latest 500 posts
+  await env.DB.put("posts:index", JSON.stringify(arr.slice(0, 500)));
 }
 
 async function addPostToIndex(env, id) {
@@ -580,13 +425,10 @@ function dedupe(arr) {
 async function listPosts(env, opts = {}) {
   const includePrivate = !!opts.includePrivate;
   const ids = await getIndex(env);
-
   const posts = [];
   for (const id of ids) {
     const post = await getPost(env, id);
     if (!post) continue;
-
-    // list view expects comments count number, not array
     posts.push({
       id: post.id,
       title: post.title,
@@ -629,13 +471,11 @@ async function addComment(env, id, text) {
   const post = await getPost(env, id);
   if (!post) return null;
   if (!Array.isArray(post.comments)) post.comments = [];
-
   post.comments.push({
     id: Date.now(),
     text,
     date: new Date().toISOString(),
   });
-
   await savePost(env, post);
   return post;
 }
@@ -643,26 +483,19 @@ async function addComment(env, id, text) {
 async function deletePost(env, id) {
   const post = await getPost(env, id);
   if (!post) return false;
-
-  // delete attached files (KV legacy only)
   const at = Array.isArray(post.attachments) ? post.attachments : [];
   for (const a of at) {
     if (a?.key && String(a.key).startsWith("file:")) {
       await env.DB.delete(a.key);
     }
   }
-
   await env.DB.delete(`post:${id}`);
-
-  // remove from index
   const idx = await getIndex(env);
   await setIndex(env, idx.filter((x) => x !== id));
-
   return true;
 }
 
 async function findFileMeta(env, key) {
-  // quick scan newest posts for this key (small usage, fine for 10–15 users)
   const ids = await getIndex(env);
   for (const id of ids.slice(0, 80)) {
     const post = await getPost(env, id);
@@ -673,8 +506,6 @@ async function findFileMeta(env, key) {
   }
   return null;
 }
-
-/* -------------------- admin / bans -------------------- */
 
 async function isAdmin(request, env) {
   const token = request.headers.get("x-admin-token");
@@ -714,8 +545,6 @@ async function unbanIp(env, ip) {
   await setBans(env, banned.filter((x) => x !== ip));
 }
 
-/* -------------------- reports -------------------- */
-
 async function getReportIndex(env) {
   const raw = await env.DB.get("reports:index");
   if (!raw) return [];
@@ -733,9 +562,7 @@ async function setReportIndex(env, arr) {
 async function addReport(env, request, postId, reason, message) {
   const rid = crypto.randomUUID();
   const reporterIp = getClientIp(request);
-
   const post = await getPost(env, postId);
-
   const report = {
     id: rid,
     postId,
@@ -752,9 +579,7 @@ async function addReport(env, request, postId, reason, message) {
         }
       : null,
   };
-
   await env.DB.put(`report:${rid}`, JSON.stringify(report));
-
   const idx = await getReportIndex(env);
   idx.unshift(rid);
   await setReportIndex(env, dedupe(idx));

@@ -1,9 +1,9 @@
 name = "bitchless-files"
 compatibility_date = "2026-02-01"
 
-# DO NOT put real KV ID here
-# We bind KV from Cloudflare Dashboard instead
+# We are using the Dashboard Binding "DB"
+# No ID needed here because you set it online.
 
 [vars]
-# DO NOT put password here
-# Set ADMIN_PASSWORD inside Cloudflare Pages dashboard
+# We are using the Dashboard Variable "ADMIN_PASSWORD"
+# No password needed here.
